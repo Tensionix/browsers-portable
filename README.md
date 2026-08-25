@@ -8,7 +8,7 @@
 - [Direct download](https://audion.dev/get/browsers-portable/1.0.0/Audion_Browsers_Portable_v1.0.0_Full.zip) — unmetered, no rate limits
 - [Project page](https://audion.dev/downloads/browsers-portable) — every version and how to install
 
-![The program window](docs/screenshot.png)
+<img src="docs/screenshot.png" alt="The program window" width="560">
 
 `SHA-256: 0724b344ed7ecd51f23f6f02a6d8924a1c92de40d8caa61a325cf620a01536bf`
 
