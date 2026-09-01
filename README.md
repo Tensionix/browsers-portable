@@ -8,14 +8,14 @@
   <a href="https://github.com/Tensionix/browsers-portable/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/Tensionix/browsers-portable?style=flat-square&color=5fd08a&logo=apache&logoColor=white&cacheSeconds=3600"></a>
 </p>
 
-**Version 1.0.0** · 2026-08-25 · 81.7 MB
+**Version 1.0.1** · 2026-09-01 · 82.4 MB
 
-- [Direct download](https://audion.dev/get/browsers-portable/1.0.0/Audion_Browsers_Portable_v1.0.0_Full.zip) — unmetered, no rate limits
+- [Direct download](https://dl.audion.dev/browsers-portable/1.0.1/Audion_Browsers_Portable_v1.0.1_Full.zip) — unmetered, no rate limits
 - [Project page](https://audion.dev/downloads/browsers-portable) — every version and how to install
 
 <p align="center"><img src="docs/screenshot.png" alt="The program window" width="560"></p>
 
-`SHA-256: 0724b344ed7ecd51f23f6f02a6d8924a1c92de40d8caa61a325cf620a01536bf`
+`SHA-256: 43ef6d7982fb4ac26eecf48cccd3ee340e79960a74476b7eb072baf57cd6c1f7`
 
 ---
 
