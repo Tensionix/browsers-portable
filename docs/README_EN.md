@@ -2,6 +2,16 @@
 
 [Русский](README_RU.md) · [User Guide](USER_GUIDE_EN.md)
 
+**Contents**
+
+- [Why It Exists](#why-it-exists)
+- [Who Is on the List, and Why](#who-is-on-the-list-and-why)
+- [Next](#next)
+- [Technical Reference](#technical-reference)
+  - [What You Get](#what-you-get)
+  - [Updating](#updating)
+  - [The Antivirus False Alarm](#the-antivirus-false-alarm)
+
 One engine for the whole Chromium stack: downloads, unpacks, assembles portable
 browsers, and keeps them updated.
 

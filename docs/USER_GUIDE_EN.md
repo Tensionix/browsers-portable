@@ -1,5 +1,16 @@
 # Audion Browsers Portable - user guide
 
+**Contents**
+
+- [How the window works](#how-the-window-works)
+- [First run](#first-run)
+- [Which browsers are here, and why only these](#which-browsers-are-here-and-why-only-these)
+- [What is inside a build](#what-is-inside-a-build)
+- [Updating](#updating)
+- [The certificates](#the-certificates)
+- [Build settings](#build-settings)
+- [Worth knowing](#worth-knowing)
+
 This program makes portable browsers: ones that live in a folder, start from
 anywhere, and are never installed into Windows. Bookmarks, passwords and tabs
 stay inside that folder, so it travels on a flash drive or goes to someone else
