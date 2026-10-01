@@ -3,19 +3,20 @@
 <!-- audion:release -->
 <p align="center">
   <a href="https://audion.dev/downloads/browsers-portable"><img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0b6db8?style=flat-square&logo=windows&logoColor=white"></a>
-  <a href="https://github.com/Tensionix/browsers-portable/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Tensionix/browsers-portable?style=flat-square&label=release&color=e08a63"></a>
+  <a href="https://github.com/Tensionix/browsers-portable/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Tensionix/browsers-portable?style=flat-square&label=release&color=2a7488"></a>
   <a href="https://github.com/Tensionix/browsers-portable/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Tensionix/browsers-portable/total?style=flat-square&label=downloads&color=5fd08a"></a>
   <a href="https://github.com/Tensionix/browsers-portable/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/Tensionix/browsers-portable?style=flat-square&color=5fd08a&logo=apache&logoColor=white&cacheSeconds=3600"></a>
 </p>
 
-**Version 1.0.2** · 2026-09-20 · 83.0 MB
+**Version 1.3.0** · 2026-10-02 · 80.7 MB
 
-- [Direct download](https://audion.dev/get/browsers-portable/1.0.2/Audion_Browsers_Portable_v1.0.2_Full.zip) — unmetered, no rate limits
+- [Direct download](https://dl.audion.dev/browsers-portable/1.3.0/Audion_Browsers_Portable_v1.3.0_Full.zip) — unmetered, no rate limits
 - [Project page](https://audion.dev/downloads/browsers-portable) — every version and how to install
+- [GitHub release](https://github.com/Tensionix/browsers-portable/releases/tag/v1.3.0)
 
 <p align="center"><img src="docs/screenshot.png" alt="The program window" width="560"></p>
 
-`SHA-256: 779b0443eff48de170437a5d98bbd909b25aeeb6f6157aaaffaaeb29e35704c8`
+`SHA-256: 26a3f362c374fcc9820874a332f578b9a5502edbbf4e8d1306a037c82e6b20a1`
 
 ---
 
