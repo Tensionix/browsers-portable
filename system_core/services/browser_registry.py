@@ -3,7 +3,9 @@
 The rule for being here: the vendor ships **no portable build that updates
 itself**. A browser that already has both — Vivaldi with its standalone install,
 Cent Browser with its portable SFX, Opera with its own autoupdate packages — gains
-nothing from this program and is deliberately absent.
+nothing from the DLL builder and is deliberately absent from this registry.
+Official Cent and Vivaldi downloads are offered separately by
+`ready_portable_service.py`, which never replaces DLLs.
 
 Two shapes cover every entry:
 
@@ -131,7 +133,8 @@ BROWSERS_BY_ID = {spec.id: spec for spec in BROWSERS}
 
 # Kept in the code rather than in a document, because someone will ask again and
 # the answer has to survive the asking. Each of these ships a portable build that
-# updates itself, so this program would add nothing.
+# updates itself, so the DLL builder would add nothing. The Downloads
+# section downloads original vendor packages and installers separately.
 EXCLUDED = {
     "vivaldi": "Install Standalone is official and its automatic updates work in it.",
     "cent": "Official portable SFX with a built-in updater that can be switched off in settings.",

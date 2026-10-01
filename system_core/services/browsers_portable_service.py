@@ -6,7 +6,7 @@ what the registry says about it:
     installer .exe -> payload .7z -> <browser folder>   ┐
     archive .zip   -> <browser folder>                  ┴-> <build>\\App\\
 
-Portability is Chrome++ (`version.dll` beside the browser executable), the same
+Portability uses the selected library (`version.dll` beside the browser executable), the same
 piece for all of them, and the certificate block is shared too - files into the
 build, trust as a separate act, and an equally separate way to take it back.
 """
@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from urllib.parse import urlsplit
 import contextlib
 import ctypes
 import hashlib
@@ -30,19 +31,22 @@ import time
 import uuid
 import zipfile
 
+from system_core.services import portable_libraries as libraries
+
 from system_core.core.jobs import JobContext, hidden_subprocess_kwargs, utf8_subprocess_env
 from system_core.services.browser_registry import BROWSERS, BrowserSpec, browser
 
 
 USER_AGENT = "Audion-Browsers-Portable"
-CHROME_PLUS_REPO = "Bush2021/chrome_plus"
-CHROME_PLUS_ASSET = re.compile(r"Chrome\+\+_v.+_x86_x64_arm64\.7z", re.IGNORECASE)
+CHROME_PLUS_REPO = "DeftKing/chrome_plus"
+CHROME_PLUS_ASSET = re.compile(r"version-(x86|x64|arm64)-.+\.zip", re.IGNORECASE)
+VIVALDI_PLUS_REPO = "ca-x/vivaldi_plus"
 
 # What makes a build portable, and the operator picks one:
 #   chrome_plus    - Chrome++, the wrapper this program started with;
 #   proxy_library  - the other proxy `version.dll`, published on GitFlic.
-PORTABLE_ENGINES = ("chrome_plus", "proxy_library")
-DEFAULT_PORTABLE_ENGINE = "chrome_plus"
+PORTABLE_ENGINES = libraries.ENGINES
+DEFAULT_PORTABLE_ENGINE = "proxy_library"
 
 # GitFlic's REST API needs a personal token, so the public pages are read
 # instead: the release list carries the newest release id and its version, and
@@ -54,6 +58,7 @@ CHROME_VERSION_API = (
     "https://versionhistory.googleapis.com/v1/chrome/platforms/win64/channels/stable/versions?pageSize=1"
 )
 BUILD_STAMP_FILE = "Portable-Build.json"
+YANDEX_UPDATER_EXECUTABLE = "service_update.exe"
 
 CERTIFICATES_DIRECTORY = "Certificates"
 RUSSIAN_TRUSTED_CERTIFICATES = (
@@ -186,9 +191,10 @@ def _download(
     user_agent: str = USER_AGENT,
     progress_start: float | None = None,
     progress_end: float | None = None,
+    use_cache: bool = True,
 ) -> DownloadedAsset:
     target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists() and target.stat().st_size > 0:
+    if use_cache and target.exists() and target.stat().st_size > 0:
         size = target.stat().st_size
         digest = _sha256(target)
         context.log(f"[CACHE] {label}: {target.name} ({size:,} bytes)")
@@ -278,14 +284,12 @@ def github_latest_assets(repo: str) -> tuple[str, list[tuple[str, str]]]:
     return tag, assets
 
 
-def chrome_plus_release() -> tuple[str, str, str]:
-    """Version, asset name and URL of the current Chrome++ release."""
-    tag, assets = github_latest_assets(CHROME_PLUS_REPO)
-    for name, url in assets:
-        if CHROME_PLUS_ASSET.fullmatch(name):
-            return tag.lstrip("v"), name, url
-    listed = ", ".join(name for name, _url in assets)
-    raise RuntimeError(f"Chrome++ archive was not found in release {tag}. Assets: {listed}")
+def chrome_plus_release(arch: str = "x64") -> tuple[str, str, str]:
+    return libraries.github_release("chrome_plus", arch, github_latest_assets)
+
+
+def vivaldi_plus_release(arch: str = "x64") -> tuple[str, str, str]:
+    return libraries.github_release("vivaldi_plus", arch, github_latest_assets)
 
 
 def _gitflic_page(path: str) -> str:
@@ -327,12 +331,12 @@ def _chrome_api_version() -> str:
     return str(versions[0].get("version") or "") if versions else ""
 
 
-def _yandex_redirect(url: str, user_agent: str) -> tuple[str, str]:
+def _yandex_redirect(url: str, user_agent: str, *, require_windows_name: bool = True) -> tuple[str, str]:
     """Version and file URL, read out of the redirect instead of the file."""
     request = Request(url, headers={"User-Agent": user_agent}, method="HEAD")
     with urlopen(request, timeout=60) as response:
         resolved = response.geturl()
-    if "Yandex.exe" not in resolved:
+    if require_windows_name and "Yandex.exe" not in resolved:
         raise RuntimeError(
             f"The download address did not resolve to a Windows installer: {resolved}. "
             "Yandex picks the platform by the user agent."
@@ -358,6 +362,24 @@ def published_source(spec: BrowserSpec) -> tuple[str, str, str]:
         version, resolved = _yandex_redirect(spec.url, spec.user_agent or USER_AGENT)
         return version, resolved, f"Yandex-{version or 'latest'}.exe"
     raise RuntimeError(f"{spec.name}: unknown version source {spec.version_source!r}")
+
+
+def _custom_installer_url(context: JobContext, spec: BrowserSpec) -> str:
+    return _param_text(context, f"{spec.id}_download_url") if spec.id in {"chrome", "yandex"} else ""
+
+
+def _browser_source(context: JobContext, spec: BrowserSpec) -> tuple[str, str, str]:
+    """A supplied installer need not match the vendor's latest stable version."""
+    url = _custom_installer_url(context, spec)
+    if not url:
+        return published_source(spec)
+    parsed = urlsplit(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise RuntimeError(f"{spec.name}: installer URL must use HTTP or HTTPS.")
+    version, resolved = _yandex_redirect(url, spec.user_agent or USER_AGENT, require_windows_name=False) if spec.id == "yandex" else ("", url)
+    key = hashlib.sha256(url.encode("utf-8")).hexdigest()[:12]
+    context.log(f"[SOURCE] {spec.name}: custom installer URL; version {version or 'unknown until unpacked'}")
+    return version, resolved, f"{spec.id}-custom-{key}-{version or 'latest'}.exe"
 
 
 def _version_tuple(text: str) -> tuple[int, ...]:
@@ -834,12 +856,13 @@ def _chrome_plus_arch(context: JobContext) -> str:
 
 
 def _download_chrome_plus(context: JobContext) -> tuple[Path, str]:
-    version, name, url = chrome_plus_release()
-    asset = _download(context, url, _archives_dir(context) / _safe_name(name), f"Chrome++ {version}")
-    return asset.path, version
+    return _download_wrapper(context, "chrome_plus", _chrome_plus_arch(context) or "x64")
 
 
 def _chrome_plus_arch_dir(context: JobContext, archive: Path, arch: str) -> Path:
+    if archive.suffix.lower() == ".zip":
+        target = _tmp_dir(context) / "chrome_plus" / _sha256(archive)[:16]
+        return libraries.prepare_chrome_archive(archive, arch, target)
     extract_root = _tmp_dir(context) / "chrome_plus"
     if not extract_root.exists() or not any(extract_root.iterdir()):
         _extract_archive(context, archive, extract_root)
@@ -860,7 +883,7 @@ def _place_chrome_plus(context: JobContext, spec: BrowserSpec, portable_dir: Pat
     forced = _chrome_plus_arch(context)
     arch = forced or detected or "x64"
     if forced and detected and forced != detected:
-        context.log(f"[WARN] {spec.name} is {detected}, but {forced} was forced: the hijack will not take.")
+        raise RuntimeError(f"{spec.name}: browser is {detected}; requested library is {forced}. They must match.")
     else:
         context.log(f"[ARCH] {spec.name}: {detected or 'unknown'} -> Chrome++ {arch}")
 
@@ -878,6 +901,7 @@ def _place_chrome_plus(context: JobContext, spec: BrowserSpec, portable_dir: Pat
             f"{spec.name}: the browser is {detected} and the Chrome++ wrapper is {placed}. "
             "They must match, or the build will not be portable."
         )
+    libraries.record_engine(portable_dir, "chrome_plus")
     for folder_name in ("Data", "Cache"):
         (portable_dir / folder_name).mkdir(parents=True, exist_ok=True)
     return arch
@@ -995,85 +1019,30 @@ def _configure_chrome_plus_ini(
 # rewrite the user agent. This file keeps to portability alone, so the browser
 # behaves the way its own settings say; the rest is a hand edit away, and every
 # key is documented in the library's README.
-PROXY_LIBRARY_INI = """\
-; Written by this program for the build it sits in.
-[Parameters]
-APPDIR=1
-REGOFF={regoff}
-AIDOFF=1
-DIROFF=0
-RMDISK=0
-REFINE=0
-SPFOLD=1
-BCTOFF=0
-STARTM=0
-ECHOFF=0
-DNSOFF=0
-
-[General]
-COMPNAME=
-DATADIR=..\\Data
-CACHEDIR=..\\Cache
-SPECFOLDER=..\\Data
-RUNPARAM=
-"""
+PROXY_LIBRARY_INI = libraries.PROXY_INI
 
 
 def _write_proxy_library_ini(context: JobContext, portable_dir: Path, *, block_registry: bool) -> None:
-    text = PROXY_LIBRARY_INI.format(regoff="1" if block_registry else "0")
+    text = PROXY_LIBRARY_INI
     (portable_dir / "App" / "version.ini").write_bytes(text.replace("\n", "\r\n").encode("ascii"))
-    if block_registry:
-        context.log("[INI] registry writes are blocked while the browser runs")
-    else:
-        context.log("[INI] registry writes left alone: the browser keeps its own branch")
+    context.log("[INI] version.ini: all optional switches are 0; Data and Cache paths are kept")
 
 
-def _place_proxy_library(
-    context: JobContext,
-    spec: BrowserSpec,
-    portable_dir: Path,
-    archive: Path,
-    *,
-    block_registry: bool,
-) -> str:
-    """Put the proxy library's `version.dll` beside the browser, plus its ini.
-
-    Unlike Chrome++ this one does not wipe the registry branch on exit - it
-    blocks the writes outright, so nothing accumulates to be wiped. The cost is
-    that `Set as default browser` stops working, which a portable build has no
-    business doing anyway.
-    """
+def _place_proxy_library(context: JobContext, spec: BrowserSpec, portable_dir: Path, archive: Path,
+                         *, block_registry: bool) -> str:
     app_dir = portable_dir / "App"
-    app_dir.mkdir(parents=True, exist_ok=True)
     detected = pe_architecture(app_dir / spec.executable)
-    forced = _chrome_plus_arch(context)
-    arch = forced or detected or "x64"
-    if arch not in PROXY_LIBRARY_DLL:
-        raise RuntimeError(
-            f"{spec.name}: the proxy library ships x86 and x64 only, and this build is {arch}. "
-            "Chrome++ is the wrapper that covers ARM64."
-        )
-    if forced and detected and forced != detected:
-        context.log(f"[WARN] {spec.name} is {detected}, but {forced} was forced: the hijack will not take.")
-    else:
-        context.log(f"[ARCH] {spec.name}: {detected or 'unknown'} -> proxy library {arch}")
-
-    extract_root = _tmp_dir(context) / "proxy_library"
-    if not extract_root.exists() or not any(extract_root.iterdir()):
-        _extract_archive(context, archive, extract_root)
-    source = _find_file(extract_root, PROXY_LIBRARY_DLL[arch])
-    if source is None:
-        raise RuntimeError(f"{PROXY_LIBRARY_DLL[arch]} was not found inside the proxy library archive.")
-    shutil.copy2(source, app_dir / "version.dll")
-    placed = pe_architecture(app_dir / "version.dll")
-    if detected and placed and detected != placed:
-        raise RuntimeError(
-            f"{spec.name}: the browser is {detected} and the proxy library is {placed}. "
-            "They must match, or the build will not be portable."
-        )
-    _write_proxy_library_ini(context, portable_dir, block_registry=block_registry)
-    for folder_name in ("Data", "Cache"):
-        (portable_dir / folder_name).mkdir(parents=True, exist_ok=True)
+    arch = _chrome_plus_arch(context) or detected or "x64"
+    files = libraries.library_files(archive, "proxy_library", arch)
+    if detected and detected != arch:
+        raise RuntimeError(f"Browser is {detected}; proxy library is {arch}. They must match.")
+    app_dir.mkdir(parents=True, exist_ok=True)
+    (app_dir / "version.dll").write_bytes(files["version.dll"])
+    _write_proxy_library_ini(context, portable_dir, block_registry=False)
+    libraries.record_engine(portable_dir, "proxy_library")
+    for name in ("Data", "Cache"):
+        (portable_dir / name).mkdir(parents=True, exist_ok=True)
+    context.log(f"[COPY] Proxy library {arch} -> {app_dir}")
     return arch
 
 
@@ -1082,20 +1051,14 @@ def _portable_engine(context: JobContext) -> str:
     return value if value in PORTABLE_ENGINES else DEFAULT_PORTABLE_ENGINE
 
 
-def _download_wrapper(context: JobContext, engine: str) -> tuple[Path | None, str]:
-    """The archive the chosen engine needs, or `(None, "")` when it needs none."""
-    if engine == "chrome_plus":
-        archive, version = _download_chrome_plus(context)
-        context.log(f"[CHROME++] {version}")
-        return archive, version
-    version, url = proxy_library_release()
-    context.log(f"[PROXY] published: {version or 'unknown'}")
-    asset = _download(
-        context,
-        url,
-        _archives_dir(context) / f"proxy-library-{version or 'latest'}.zip",
-        f"Proxy library {version}".strip(),
-    )
+def _download_wrapper(context: JobContext, engine: str, arch: str = "x64") -> tuple[Path, str]:
+    if engine == "proxy_library":
+        def lookup():
+            version, url = proxy_library_release()
+            return version, f"proxy-library-{version or 'latest'}.zip", url
+    else:
+        lookup = lambda: libraries.github_release(engine, arch, github_latest_assets)
+    asset, version = libraries.download_library(context, engine, arch, lookup, _download, _archives_dir(context))
     return asset.path, version
 
 
@@ -1108,6 +1071,10 @@ def _place_wrapper(
     archive: Path | None,
     wipe_registry: bool,
 ) -> str:
+    if engine == "vivaldi_plus":
+        detected = pe_architecture(portable_dir / "App" / spec.executable)
+        arch = _chrome_plus_arch(context) or detected or "x64"
+        return libraries.install_vivaldi(context, portable_dir, archive, arch, spec.executable)
     if engine == "chrome_plus":
         arch = _place_chrome_plus(context, spec, portable_dir, archive)
         _configure_chrome_plus_ini(context, spec, portable_dir, wipe_registry=wipe_registry)
@@ -1123,7 +1090,7 @@ def _write_launcher(context: JobContext, spec: BrowserSpec, portable_dir: Path) 
     """
     launcher = portable_dir / f"{spec.folder}.cmd"
     launcher.write_bytes(
-        ("@echo off\r\n" f'start "" "%~dp0App\\{spec.executable}" %*\r\n').encode("utf-8")
+        ("@echo off\r\n" f'start "" /D "%~dp0App" "%~dp0App\\{spec.executable}" %*\r\n').encode("utf-8")
     )
     return launcher
 
@@ -1406,8 +1373,8 @@ def install_portable_7zip(context: JobContext) -> dict[str, object]:
     return {"installed": True, "version": version, "path": str(_seven_zip_path(context))}
 
 
-def _selected_specs(context: JobContext) -> list[BrowserSpec]:
-    selected = _param_list(context, "browsers")
+def _selected_specs(context: JobContext, key: str = "browsers") -> list[BrowserSpec]:
+    selected = _param_list(context, key)
     if not selected:
         raise RuntimeError("Select at least one browser.")
     return [browser(item) for item in selected]
@@ -1434,14 +1401,9 @@ def _existing_build(context: JobContext, spec: BrowserSpec) -> Path | None:
 
 
 def _published_wrapper_version(context: JobContext, engine: str) -> str:
-    """What the chosen wrapper publishes today; nothing is downloaded."""
-    if engine == "chrome_plus":
-        version, _name, _url = chrome_plus_release()
-        context.log(f"[CHROME++] published: {version}")
-        return version
-    version, _url = proxy_library_release()
-    context.log(f"[PROXY] published: {version or 'unknown'}")
-    return version
+    arch = _chrome_plus_arch(context) or "x64"
+    lookup = proxy_library_release if engine == "proxy_library" else lambda: libraries.github_release(engine, arch, github_latest_assets)
+    return libraries.published_version(context, engine, arch, lookup, _archives_dir(context))
 
 
 def check_updates(context: JobContext) -> dict[str, object]:
@@ -1452,7 +1414,7 @@ def check_updates(context: JobContext) -> dict[str, object]:
     rows: list[dict[str, object]] = []
     for index, spec in enumerate(specs, start=1):
         try:
-            published, _url, _filename = published_source(spec)
+            published, _url, _filename = _browser_source(context, spec)
         except RuntimeError as exc:
             context.log(f"[FAIL] {spec.name}: {exc}")
             rows.append({"browser": spec.name, "error": str(exc)})
@@ -1461,8 +1423,8 @@ def check_updates(context: JobContext) -> dict[str, object]:
         build = _existing_build(context, spec)
         current, current_plus = build_versions(spec, build) if build else ("", "")
         needs = bool(published) and not same_version(published, current, spec.version_match)
-        plus_needs = bool(plus_version) and not same_version(plus_version, current_plus)
-        state = "not built yet" if not build else ("update available" if needs else "up to date")
+        plus_needs = bool(plus_version) and (not same_version(plus_version, current_plus) or bool(build and libraries.needs_refresh(build, engine)))
+        state = "not built yet" if not build else ("version unknown" if not published else ("update available" if needs else "up to date"))
         context.log(
             f"[{spec.name}] published {published or '?'} / build {current or '-'} -> {state}"
             + ("; wrapper update available" if build and plus_needs else "")
@@ -1474,7 +1436,7 @@ def check_updates(context: JobContext) -> dict[str, object]:
                 "build": current,
                 "wrapper": current_plus,
                 "chrome_plus": current_plus,
-                "update": needs,
+                "update": needs if published else None,
                 "wrapper_update": plus_needs,
                 "chrome_plus_update": plus_needs,
                 "path": str(build) if build else "",
@@ -1521,6 +1483,182 @@ def _replace_app_in_place(context: JobContext, spec: BrowserSpec, target: Path, 
     context.log(f"[UPDATE] App replaced in place: {target}")
 
 
+def _managed_build_file(build: Path, relative: str) -> Path:
+    """Refuse linked files/directories before modifying a known build file."""
+    target = build / relative
+    for entry in (target, *target.parents):
+        if entry.exists() or entry.is_symlink():
+            attributes = getattr(entry.lstat(), "st_file_attributes", 0)
+            if entry.is_symlink() or attributes & 0x400:
+                raise RuntimeError(f"Linked build path cannot be changed: {entry}")
+        if entry == build:
+            break
+    if not target.resolve().is_relative_to(build.resolve()):
+        raise RuntimeError(f"Build file escapes its folder: {target}")
+    if target.exists() and not target.is_file():
+        raise RuntimeError(f"Expected a build file: {target}")
+    return target
+
+
+def _disable_yandex_updater(context: JobContext, spec: BrowserSpec, build: Path) -> list[str]:
+    if spec.id != "yandex" or not _param_bool(context, "disable_yandex_updater", True):
+        return []
+    removed: list[str] = []
+    for updater in (build / "App").rglob("*"):
+        if updater.name.casefold() != YANDEX_UPDATER_EXECUTABLE or not updater.is_file():
+            continue
+        relative = str(updater.relative_to(build))
+        try:
+            _managed_build_file(build, relative)
+        except RuntimeError as exc:
+            context.log(f"[SKIP] {exc}")
+            continue
+        updater.unlink()
+        removed.append(relative)
+        context.log(f"[CLEAN] Yandex updater removed: {relative}")
+    return removed
+
+
+def _replace_wrapper_in_place(
+    context: JobContext, spec: BrowserSpec, build: Path, staged: Path, engine: str,
+) -> None:
+    """Commit known wrapper files on the build's volume, with rollback on failure."""
+    config = {"chrome_plus": "chrome++.ini", "proxy_library": "version.ini", "vivaldi_plus": "config.ini"}[engine]
+    desired = ["App/version.dll", f"App/{config}", "App/portable-library.json", f"{spec.folder}.cmd", BUILD_STAMP_FILE]
+    obsolete = [f"App/{name}" for name in ("chrome++.ini", "version.ini") if name != config]
+    if libraries.installed_engine(build) == "vivaldi_plus" and engine != "vivaldi_plus":
+        obsolete.append("App/config.ini")
+    changes: list[tuple[Path, Path | None]] = []
+    for relative in desired + obsolete:
+        target = _managed_build_file(build, relative)
+        source = staged / relative if relative in desired else None
+        if source is not None:
+            if not source.is_file():
+                raise RuntimeError(f"Staged wrapper file is missing: {source}")
+            if target.is_file() and target.read_bytes() == source.read_bytes():
+                continue
+        elif not target.exists():
+            continue
+        changes.append((target, source))
+    if context.cancelled():
+        raise RuntimeError("Wrapper update cancelled before changing the build.")
+    transaction = build / f".audion-wrapper-update-{uuid.uuid4().hex}"
+    transaction.mkdir()
+    committed: list[tuple[Path, Path | None]] = []
+    try:
+        prepared: list[tuple[Path, Path | None, Path | None]] = []
+        for index, (target, source) in enumerate(changes):
+            backup = transaction / f"{index}.old" if target.exists() else None
+            if backup is not None:
+                shutil.copy2(target, backup)
+            replacement = transaction / f"{index}.new" if source is not None else None
+            if replacement is not None:
+                shutil.copy2(source, replacement)
+            prepared.append((target, replacement, backup))
+        for target, replacement, backup in prepared:
+            _managed_build_file(build, str(target.relative_to(build)))
+            if context.cancelled():
+                raise RuntimeError("Wrapper update cancelled.")
+            if replacement is None:
+                target.unlink()
+            else:
+                replacement.replace(target)
+            committed.append((target, backup))
+    except Exception as exc:
+        rollback_errors: list[str] = []
+        for target, backup in reversed(committed):
+            try:
+                _managed_build_file(build, str(target.relative_to(build)))
+                if backup is None:
+                    target.unlink(missing_ok=True)
+                else:
+                    backup.replace(target)
+            except (OSError, RuntimeError) as rollback_exc:
+                rollback_errors.append(str(rollback_exc))
+        if rollback_errors:
+            raise RuntimeError(f"{spec.name}: wrapper update failed; recovery files kept in {transaction}. {rollback_errors}") from exc
+        _remove_tree(transaction)
+        raise RuntimeError(f"{spec.name}: wrapper update failed and was rolled back. Close the browser and retry. ({exc})") from exc
+    _remove_tree(transaction)
+    context.log(f"[UPDATE] Wrapper replaced in place: {build}")
+
+
+def update_libraries_selected(context: JobContext) -> dict[str, object]:
+    """Update only the selected library; never resolve or download the browser."""
+    specs = _selected_specs(context)
+    engine = _portable_engine(context)
+    updated: list[dict[str, object]] = []
+    skipped: list[dict[str, object]] = []
+    failed: list[dict[str, str]] = []
+    archives: dict[str, tuple[Path, str]] = {}
+    try:
+        for index, spec in enumerate(specs, start=1):
+            try:
+                if context.cancelled():
+                    raise RuntimeError("Wrapper update cancelled.")
+                build = _existing_build(context, spec)
+                if build is None:
+                    context.log(f"[SKIP] {spec.name}: no existing build.")
+                    skipped.append({"browser": spec.name, "reason": "no build"})
+                    continue
+                executable = _managed_build_file(build, f"App/{spec.executable}")
+                detected, forced = pe_architecture(executable), _chrome_plus_arch(context)
+                if not detected:
+                    raise RuntimeError(f"{spec.name}: cannot read the browser architecture.")
+                if forced and forced != detected:
+                    raise RuntimeError(f"{spec.name}: browser is {detected}; requested library is {forced}. They must match.")
+                libraries.require_architecture(engine, detected)
+                old_version, old_wrapper = build_versions(spec, build)
+                guard = _defender_guard(context, [_output_root(context), build]) if _param_bool(context, "guard_defender", True) else contextlib.nullcontext()
+                with guard:
+                    if detected not in archives:
+                        archives[detected] = _download_wrapper(context, engine, detected)
+                    archive, release = archives[detected]
+                    staged = _tmp_dir(context) / f"wrapper-{uuid.uuid4().hex}"
+                    (staged / "App").mkdir(parents=True)
+                    shutil.copy2(executable, staged / "App" / spec.executable)
+                    _place_wrapper(context, spec, staged, engine=engine, archive=archive, wipe_registry=False)
+                    config = {"chrome_plus": "chrome++.ini", "proxy_library": "version.ini", "vivaldi_plus": "config.ini"}[engine]
+                    if libraries.installed_engine(build) == engine:
+                        old_ini = _managed_build_file(build, f"App/{config}")
+                        if old_ini.is_file():
+                            shutil.copy2(old_ini, staged / "App" / config)
+                    _write_launcher(context, spec, staged)
+                    old_launcher = _managed_build_file(build, f"{spec.folder}.cmd")
+                    if libraries.installed_engine(build) == engine and old_launcher.is_file():
+                        shutil.copy2(old_launcher, staged / old_launcher.name)
+                    stamp = _managed_build_file(build, BUILD_STAMP_FILE)
+                    metadata: dict[str, Any] = {}
+                    if stamp.is_file():
+                        try:
+                            saved = json.loads(stamp.read_text(encoding="utf-8"))
+                            metadata = saved if isinstance(saved, dict) else {}
+                        except (OSError, ValueError):
+                            context.log("[INFO] Previous build note could not be read.")
+                    _write_build_stamp(context, spec, staged, {
+                        **metadata, "mode": "wrapper_update", "portable_engine": engine,
+                        "browser_version": old_version, "wrapper_release": release,
+                        "previous_wrapper_version": old_wrapper,
+                    })
+                    _replace_wrapper_in_place(context, spec, build, staged, engine)
+                    updated.append({"browser": spec.name, "id": spec.id, "build": str(build),
+                                    "version": old_version, "previous_wrapper_version": old_wrapper,
+                                    "wrapper_version": build_versions(spec, build)[1] or release,
+                                    "portable_engine": engine})
+                    context.log(f"[DONE] {spec.name}: only the wrapper updated.")
+            except Exception as exc:  # noqa: BLE001 - keep the other builds available
+                context.log(f"[FAIL] {spec.name}: {exc}")
+                failed.append({"browser": spec.name, "error": str(exc)})
+            finally:
+                context.progress(index / len(specs))
+    finally:
+        if not _param_bool(context, "keep_temp", False):
+            _remove_tree(_tmp_dir(context))
+    if not updated:
+        raise RuntimeError("; ".join(item["error"] for item in failed) or "No existing builds found. Select the build or its parent as Source.")
+    return {"updated": updated, "skipped": skipped, "failed": failed, "portable_engine": engine}
+
+
 def _build_one(
     context: JobContext,
     spec: BrowserSpec,
@@ -1533,7 +1671,7 @@ def _build_one(
     package_archive: bool,
     keep_data_from: Path | None = None,
 ) -> dict[str, object]:
-    published, url, filename = published_source(spec)
+    published, url, filename = _browser_source(context, spec)
     context.log(f"[{spec.name}] published: {published or 'unknown'}")
     asset = _download(
         context,
@@ -1541,6 +1679,7 @@ def _build_one(
         _archives_dir(context) / _safe_name(filename),
         f"{spec.name} {published}".strip(),
         user_agent=spec.user_agent or USER_AGENT,
+        use_cache=not bool(_custom_installer_url(context, spec)),
     )
 
     work = _tmp_dir(context) / spec.folder
@@ -1554,6 +1693,14 @@ def _build_one(
     _copy_tree_contents(payload, app_dir)
     if not (app_dir / spec.executable).exists():
         raise RuntimeError(f"{spec.name}: {spec.executable} is missing from App after the copy.")
+    removed_updaters = _disable_yandex_updater(context, spec, work)
+
+    if plus_archive is None:
+        detected = pe_architecture(app_dir / spec.executable)
+        forced = _chrome_plus_arch(context)
+        if forced and detected and forced != detected:
+            raise RuntimeError(f"Browser is {detected}; requested library is {forced}. They must match.")
+        plus_archive, plus_version = _download_wrapper(context, engine, forced or detected or "x64")
 
     _place_wrapper(
         context,
@@ -1584,6 +1731,7 @@ def _build_one(
             "portable_engine": engine,
             "chrome_plus_release": plus_version,
             "certificates_staged": bool(with_certificates),
+            "yandex_updater_disabled": bool(spec.id == "yandex" and _param_bool(context, "disable_yandex_updater", True)),
         },
     )
     version, plus_in_build = build_versions(spec, home)
@@ -1601,7 +1749,8 @@ def _build_one(
         "artifact": str(artifact),
         "certificates": bool(certificates),
         "registry_wiped_on_exit": bool(engine == "chrome_plus" and wipe_registry and spec.registry_branch),
-        "registry_writes_blocked": bool(engine == "proxy_library" and wipe_registry),
+        "registry_writes_blocked": False,
+        "removed_updaters": removed_updaters,
     }
 
 
@@ -1626,7 +1775,7 @@ def build_selected(context: JobContext) -> dict[str, object]:
     )
     with guard:
         engine = _portable_engine(context)
-        plus_archive, plus_version = _download_wrapper(context, engine)
+        plus_archive, plus_version = None, ""
 
         built: list[dict[str, object]] = []
         failed: list[dict[str, str]] = []
@@ -1679,7 +1828,7 @@ def update_selected(context: JobContext) -> dict[str, object]:
     )
     with guard:
         engine = _portable_engine(context)
-        plus_archive, plus_version = _download_wrapper(context, engine)
+        plus_archive, plus_version = None, _published_wrapper_version(context, engine)
 
         updated: list[dict[str, object]] = []
         skipped: list[dict[str, object]] = []
@@ -1693,15 +1842,19 @@ def update_selected(context: JobContext) -> dict[str, object]:
                     skipped.append({"browser": spec.name, "reason": "no build"})
                     continue
                 current, current_plus = build_versions(spec, build)
-                published, _url, _filename = published_source(spec)
+                published, _url, _filename = _browser_source(context, spec)
                 if (
                     published
                     and same_version(published, current, spec.version_match)
                     and same_version(plus_version, current_plus)
+                    and not libraries.needs_refresh(build, engine)
                     and not force
+                    and not _custom_installer_url(context, spec)
                 ):
+                    removed_updaters = _disable_yandex_updater(context, spec, build)
                     context.log(f"[SKIP] {spec.name}: {current} is current, wrapper {current_plus or '-'} too.")
-                    skipped.append({"browser": spec.name, "reason": "already current", "version": current})
+                    skipped.append({"browser": spec.name, "reason": "already current", "version": current,
+                                    "removed_updaters": removed_updaters})
                     continue
                 updated.append(
                     _build_one(
@@ -1724,7 +1877,38 @@ def update_selected(context: JobContext) -> dict[str, object]:
                 context.progress(index / len(specs))
         if not keep_temp:
             _remove_tree(_tmp_dir(context))
+    if failed and not updated and not any(item["reason"] == "already current" for item in skipped):
+        raise RuntimeError("; ".join(item["error"] for item in failed))
     return {"updated": updated, "skipped": skipped, "failed": failed, "output": str(_portable_root(context))}
+
+
+def stage_certificates_selected(context: JobContext) -> dict[str, object]:
+    """Save CA files in existing builds without changing Windows trust."""
+    key = "certificate_browsers" if "certificate_browsers" in context.operation.parameters else "browsers"
+    specs = _selected_specs(context, key)
+    staged: list[dict[str, object]] = []
+    skipped: list[dict[str, str]] = []
+    failed: list[dict[str, str]] = []
+    for index, spec in enumerate(specs, start=1):
+        try:
+            build = _existing_build(context, spec)
+            if build is None:
+                context.log(f"[SKIP] {spec.name}: no existing build.")
+                skipped.append({"browser": spec.name, "reason": "no build"})
+                continue
+            if context.cancelled():
+                raise RuntimeError("Certificate download cancelled.")
+            for name in [str(item["name"]) for item in RUSSIAN_TRUSTED_CERTIFICATES] + ["Install-Russian-Trusted-CA.cmd", "Uninstall-Russian-Trusted-CA.cmd"]:
+                _managed_build_file(build, f"{CERTIFICATES_DIRECTORY}/{name}")
+            staged.append({"browser": spec.name, "build": str(build), **stage_certificates(context, build)})
+        except Exception as exc:  # noqa: BLE001 - a failed source/build need not stop the batch
+            context.log(f"[FAIL] {spec.name}: {exc}")
+            failed.append({"browser": spec.name, "error": str(exc)})
+        finally:
+            context.progress(index / len(specs))
+    if not staged:
+        raise RuntimeError("; ".join(item["error"] for item in failed) or "No existing builds found. Select the build or its parent as Source.")
+    return {"staged": staged, "skipped": skipped, "failed": failed}
 
 
 def browser_options(root: Path | None = None) -> list[dict[str, str]]:

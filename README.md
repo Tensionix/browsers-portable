@@ -8,15 +8,14 @@
   <a href="https://github.com/Tensionix/browsers-portable/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/Tensionix/browsers-portable?style=flat-square&color=5fd08a&logo=apache&logoColor=white&cacheSeconds=3600"></a>
 </p>
 
-**Version 1.3.0** · 2026-10-02 · 4.3 MB
+**Version 1.3.0** · 2026-10-02 · 80.7 MB
 
-- [Direct download](https://dl.audion.dev/browsers-portable/1.3.0/Audion_Browsers_Portable_v1.3.0.zip) — unmetered, no rate limits
+- [Direct download](https://audion.dev/get/browsers-portable/1.3.0/Audion_Browsers_Portable_v1.3.0_Full.zip) — unmetered, no rate limits
 - [Project page](https://audion.dev/downloads/browsers-portable) — every version and how to install
-- [GitHub release](https://github.com/Tensionix/browsers-portable/releases/tag/v1.3.0)
 
 <p align="center"><img src="docs/screenshot.png" alt="The program window" width="560"></p>
 
-`SHA-256: de8f13dac07616df653c2f78b9efab2d80b9dcac15c4dd937f953882c674309b`
+`SHA-256: 26a3f362c374fcc9820874a332f578b9a5502edbbf4e8d1306a037c82e6b20a1`
 
 ---
 
@@ -24,12 +23,15 @@ An **Audion** tool, published by [Tensionix](https://github.com/Tensionix).
 <!-- /audion:release -->
 
 
-[Русский](docs/README_RU.md) · [User Guide](docs/USER_GUIDE_EN.md)
+[English README](docs/README_EN.md) · [User Guide](docs/USER_GUIDE_EN.md) | [Русский README](docs/README_RU.md) · [Руководство](docs/USER_GUIDE_RU.md)
 
 **Contents**
 
+- [Portable libraries](#portable-libraries)
+- [Single-browser tools consolidated](#single-browser-tools-consolidated)
 - [Why It Exists](#why-it-exists)
-- [Who Is on the List, and Why](#who-is-on-the-list-and-why)
+- [Official Downloads](#official-downloads)
+- [Who Is on the DLL Build List, and Why](#who-is-on-the-dll-build-list-and-why)
 - [Next](#next)
 - [Technical Reference](#technical-reference)
   - [What You Get](#what-you-get)
@@ -38,6 +40,29 @@ An **Audion** tool, published by [Tensionix](https://github.com/Tensionix).
 
 One engine for the whole Chromium stack: downloads, unpacks, assembles portable
 browsers, and keeps them updated.
+
+## Portable libraries
+
+The default library is [Proxy library](https://gitflic.ru/project/neyrostalker/proksi-biblioteka) (x86/x64), with every optional switch in `App/version.ini` set to `0`. Alternatives are [Chrome++ (DeftKing)](https://github.com/DeftKing/chrome_plus) and [Vivaldi++](https://github.com/ca-x/vivaldi_plus), both supporting x86/x64/ARM64. A failed release lookup or download falls back to a verified archive of the selected library in the project. The generated launcher starts in `App` so relative `Data` and `Cache` paths stay inside the build. Registry cleanup applies only to Chrome++.
+
+## Single-browser tools consolidated
+
+`UPDATE` → `UPDATE DLL ONLY` refreshes the selected library in existing builds
+without downloading the browser. Browser files, `Data` and `Cache` stay in place.
+The same library keeps its INI; switching libraries creates the standard INI,
+with all optional switches set to zero for Proxy library.
+
+Build, check and update forms have optional Chrome/Yandex full-installer URLs
+under `Advanced`. Blank fields use official sources. Custom installers are
+downloaded afresh during build and update.
+
+`Disable Yandex updater` is enabled by default and removes only
+`service_update.exe` inside Yandex's `App`. Update the browser through this
+program afterwards.
+
+`CERTIFICATE` → `ADD TO BUILD` saves the two Russian Trusted CA certificates and
+install/revoke commands in an existing build. Installing Windows trust remains
+a separate command.
 
 ## Why It Exists
 
@@ -50,9 +75,22 @@ it by hand every three weeks is not.
 what it intended to place into the system is taken out of it instead. The profile
 lives in the build folder, next to the browser.
 
-## Who Is on the List, and Why
+## Official Downloads
 
-One rule decides: **the vendor has no portable build that updates itself**.
+The `Downloads` tab saves original files under `Browser Downloads` in the Target
+folder: Cent Browser portable SFX (x86/x64), LibreWolf portable ZIP (x64/ARM64),
+Vivaldi installer (x86/x64/ARM64), and the regular DuckDuckGo installer (x64).
+For Vivaldi, manually choose Advanced → Install Standalone in the saved installer.
+The program does not run or unpack these files or replace their DLLs.
+
+Repeat downloads verify the saved SHA256; DuckDuckGo's unversioned installer is
+downloaded to a temporary file and replaces the saved copy only when its hash changes. A source failure is reported for
+that browser while the remaining downloads continue. Zen is omitted because its
+current official Windows release has no portable package (checked 2026-10-01).
+
+## Who Is on the DLL Build List, and Why
+
+One rule decides for the DLL builder: **the vendor has no portable build that updates itself**.
 
 | browser | why it is here |
 |---|---|
@@ -62,7 +100,7 @@ One rule decides: **the vendor has no portable build that updates itself**.
 | Chromium-Gost | speaks the GOST TLS that state portals require; an archive exists, updates do not |
 | Ungoogled Chromium | an archive exists, an updater does not — that is the point of the project |
 
-**Who is absent, and not by oversight:**
+**Excluded from the DLL builder:**
 
 * **Vivaldi** — an official standalone install with working auto-update;
 * **Cent Browser** — an official portable build with a built-in updater;
@@ -90,7 +128,7 @@ work the vendor already does — and doing it worse.
 ### What You Get
 
 A build folder: the browser, the profile, a launcher, and a record of which
-versions are inside. It travels whole and leaves no trace in the system.
+versions are inside. It travels as a folder. With zero INI switches, registry writes and optional restrictions remain under browser control.
 
 ### Updating
 

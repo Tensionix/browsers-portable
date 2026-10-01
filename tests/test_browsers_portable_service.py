@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from pathlib import Path
 import struct
+import zipfile
 
 import pytest
 
@@ -338,10 +339,13 @@ PROXY_RELEASE_PAGE = """
 
 
 def _proxy_tree(context: JobContext) -> None:
-    """A pre-extracted proxy library archive: one dll per architecture."""
+    """A real archive fixture, one DLL per architecture."""
     root = service._tmp_dir(context) / "proxy_library" / "Bin"
     _fake_pe(root / "version x32.dll", "x86")
     _fake_pe(root / "version x64.dll", "x64")
+    with zipfile.ZipFile(context.paths.root / "unused.zip", "w") as zipped:
+        for path in root.iterdir():
+            zipped.write(path, "Bin/" + path.name)
 
 
 def test_proxy_library_release_reads_the_gitflic_pages(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -382,7 +386,7 @@ def test_the_proxy_library_matches_the_browser_architecture(tmp_path: Path) -> N
 
     assert arch == "x86"
     assert service.pe_architecture(build / "App" / "version.dll") == "x86"
-    assert "REGOFF=1" in (build / "App" / "version.ini").read_text(encoding="ascii")
+    assert "REGOFF=0" in (build / "App" / "version.ini").read_text(encoding="ascii")
 
 
 def test_the_proxy_library_refuses_arm64_instead_of_shipping_it(tmp_path: Path) -> None:
@@ -392,7 +396,7 @@ def test_the_proxy_library_refuses_arm64_instead_of_shipping_it(tmp_path: Path) 
     spec = browser_registry.browser("brave")
     build = _build_with_browser(tmp_path, spec, "arm64")
 
-    with pytest.raises(RuntimeError, match="x86 and x64 only"):
+    with pytest.raises(RuntimeError, match="does not support arm64"):
         service._place_proxy_library(context, spec, build, tmp_path / "unused.zip", block_registry=False)
 
 

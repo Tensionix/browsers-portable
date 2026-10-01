@@ -146,6 +146,57 @@ async def test_canonical_workbench_labels_are_on_screen(user: User, fresh_gui) -
 
 
 @pytest.mark.anyio
+async def test_official_download_tab_shows_installer_and_portable_choices(user: User, fresh_gui, monkeypatch) -> None:
+    gui = fresh_gui
+    monkeypatch.setitem(gui.state, "root_tab", "install")
+    await user.open("/")
+    ru = ui_language(gui) == "ru"
+    user.find("Скачивание" if ru else "Downloads").click()
+    for label in ("Cent Browser", "Vivaldi", "LibreWolf",
+                  "DuckDuckGo (установщик)" if ru else "DuckDuckGo (installer)",
+                  "Скачать" if ru else "Download", "x64", "x86", "ARM64"):
+        await user.should_see(label)
+    await user.should_not_see("Портативность" if ru else "Portability")
+    user.find("DuckDuckGo (установщик)" if ru else "DuckDuckGo (installer)").click()
+    assert gui.state["field_values"]["ready_browsers"] == ["duckduckgo"]
+    user.find(kind=ui.button, content="x86").click()
+    assert gui.state["field_values"]["ready_arch"] == "x86"
+
+
+@pytest.mark.anyio
+async def test_migrated_update_controls_reach_the_screen(user: User, fresh_gui, monkeypatch) -> None:
+    gui = fresh_gui
+    monkeypatch.setitem(gui.state, "root_tab", "update")
+    monkeypatch.setattr(gui.settings, "advanced_open", True)
+    await user.open("/")
+    ru = ui_language(gui) == "ru"
+    for label in (
+        "Обновить только DLL" if ru else "Update DLL only",
+        "Ссылка установщика Chrome" if ru else "Chrome installer URL",
+        "Ссылка установщика Yandex" if ru else "Yandex installer URL",
+        "Отключить обновлятор Yandex" if ru else "Disable Yandex updater",
+        "Библиотека" if ru else "Library",
+    ):
+        await user.should_see(label)
+    assert gui.state["field_values"]["disable_yandex_updater"] is True
+    assert gui.state["field_values"]["chrome_download_url"] == ""
+    assert gui.state["field_values"]["yandex_download_url"] == ""
+
+
+@pytest.mark.anyio
+async def test_certificate_staging_is_distinct_from_windows_install(user: User, fresh_gui, monkeypatch) -> None:
+    gui = fresh_gui
+    monkeypatch.setitem(gui.state, "root_tab", "certificates")
+    monkeypatch.setitem(gui.state["field_values"], "browsers", ["brave"])
+    await user.open("/")
+    ru = ui_language(gui) == "ru"
+    await user.should_see("Добавить в сборку" if ru else "Add to build")
+    await user.should_see("Установить" if ru else "Install")
+    assert gui.state["field_values"]["certificate_browsers"] == ["chrome"]
+    assert gui.state["field_values"]["browsers"] == ["brave"]
+
+
+@pytest.mark.anyio
 async def test_the_stylesheet_reaches_the_page_from_its_own_file(user: User, fresh_gui) -> None:
     """`add_styles` reads .css files now, so a missing file must fail loudly here."""
     await user.open("/")

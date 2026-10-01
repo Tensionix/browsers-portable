@@ -1,11 +1,14 @@
 # Audion Browsers Portable
 
-[Русский](README_RU.md) · [User Guide](USER_GUIDE_EN.md)
+[English README](README_EN.md) · [User Guide](USER_GUIDE_EN.md) | [Русский README](README_RU.md) · [Руководство](USER_GUIDE_RU.md)
 
 **Contents**
 
+- [Portable libraries](#portable-libraries)
+- [Single-browser tools consolidated](#single-browser-tools-consolidated)
 - [Why It Exists](#why-it-exists)
-- [Who Is on the List, and Why](#who-is-on-the-list-and-why)
+- [Official Downloads](#official-downloads)
+- [Who Is on the DLL Build List, and Why](#who-is-on-the-dll-build-list-and-why)
 - [Next](#next)
 - [Technical Reference](#technical-reference)
   - [What You Get](#what-you-get)
@@ -14,6 +17,29 @@
 
 One engine for the whole Chromium stack: downloads, unpacks, assembles portable
 browsers, and keeps them updated.
+
+## Portable libraries
+
+The default library is [Proxy library](https://gitflic.ru/project/neyrostalker/proksi-biblioteka) (x86/x64), with every optional switch in `App/version.ini` set to `0`. Alternatives are [Chrome++ (DeftKing)](https://github.com/DeftKing/chrome_plus) and [Vivaldi++](https://github.com/ca-x/vivaldi_plus), both supporting x86/x64/ARM64. A failed release lookup or download falls back to a verified archive of the selected library in the project. The generated launcher starts in `App` so relative `Data` and `Cache` paths stay inside the build. Registry cleanup applies only to Chrome++.
+
+## Single-browser tools consolidated
+
+`UPDATE` → `UPDATE DLL ONLY` refreshes the selected library in existing builds
+without downloading the browser. Browser files, `Data` and `Cache` stay in place.
+The same library keeps its INI; switching libraries creates the standard INI,
+with all optional switches set to zero for Proxy library.
+
+Build, check and update forms have optional Chrome/Yandex full-installer URLs
+under `Advanced`. Blank fields use official sources. Custom installers are
+downloaded afresh during build and update.
+
+`Disable Yandex updater` is enabled by default and removes only
+`service_update.exe` inside Yandex's `App`. Update the browser through this
+program afterwards.
+
+`CERTIFICATE` → `ADD TO BUILD` saves the two Russian Trusted CA certificates and
+install/revoke commands in an existing build. Installing Windows trust remains
+a separate command.
 
 ## Why It Exists
 
@@ -26,9 +52,22 @@ it by hand every three weeks is not.
 what it intended to place into the system is taken out of it instead. The profile
 lives in the build folder, next to the browser.
 
-## Who Is on the List, and Why
+## Official Downloads
 
-One rule decides: **the vendor has no portable build that updates itself**.
+The `Downloads` tab saves original files under `Browser Downloads` in the Target
+folder: Cent Browser portable SFX (x86/x64), LibreWolf portable ZIP (x64/ARM64),
+Vivaldi installer (x86/x64/ARM64), and the regular DuckDuckGo installer (x64).
+For Vivaldi, manually choose Advanced → Install Standalone in the saved installer.
+The program does not run or unpack these files or replace their DLLs.
+
+Repeat downloads verify the saved SHA256; DuckDuckGo's unversioned installer is
+downloaded to a temporary file and replaces the saved copy only when its hash changes. A source failure is reported for
+that browser while the remaining downloads continue. Zen is omitted because its
+current official Windows release has no portable package (checked 2026-10-01).
+
+## Who Is on the DLL Build List, and Why
+
+One rule decides for the DLL builder: **the vendor has no portable build that updates itself**.
 
 | browser | why it is here |
 |---|---|
@@ -38,7 +77,7 @@ One rule decides: **the vendor has no portable build that updates itself**.
 | Chromium-Gost | speaks the GOST TLS that state portals require; an archive exists, updates do not |
 | Ungoogled Chromium | an archive exists, an updater does not — that is the point of the project |
 
-**Who is absent, and not by oversight:**
+**Excluded from the DLL builder:**
 
 * **Vivaldi** — an official standalone install with working auto-update;
 * **Cent Browser** — an official portable build with a built-in updater;
@@ -66,7 +105,7 @@ work the vendor already does — and doing it worse.
 ### What You Get
 
 A build folder: the browser, the profile, a launcher, and a record of which
-versions are inside. It travels whole and leaves no trace in the system.
+versions are inside. It travels as a folder. With zero INI switches, registry writes and optional restrictions remain under browser control.
 
 ### Updating
 

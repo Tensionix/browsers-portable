@@ -58,7 +58,7 @@ echo   - runtime, wheelhouse, install\download contents
 echo   - all folders named .runtime, _runtime, ._runtime, __pycache__
 echo   - pytest/mypy/ruff caches, root build/dist folders
 echo   - system_core\fzf.exe and system_core\powershell contents
-echo   - tools\7zip (rebuilt by the builder; it goes stale fast)
+echo   - tools\ entirely (7-Zip is rebuilt by the builder; libraries are downloaded)
 echo   - system_core\_pwsh_tmp, system_core\_powershell_tmp, system_core\_fzf_tmp
 echo   - Git history is preserved
 echo   - root licenses\ is preserved unchanged
@@ -119,7 +119,7 @@ rem licenses\ is intentionally preserved by release cleanup.
 call :RemoveDir "%BASE_DIR%\build"
 call :RemoveDir "%BASE_DIR%\dist"
 call :RemoveFile "%BASE_DIR%\system_core\fzf.exe"
-call :RemoveDir "%BASE_DIR%\tools\7zip"
+call :RemoveDir "%BASE_DIR%\tools"
 
 call :RemoveFilesByPattern "*.pyc"
 call :RemoveFilesByPattern "*.pyo"

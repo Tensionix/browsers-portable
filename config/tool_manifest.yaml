@@ -2,7 +2,7 @@ tool:
   id: audion_browsers_portable
   name: "Audion Browsers Portable"
   category: "Browsers"
-  version: "1.0.0"
+  version: "1.3.0"
 
 paths:
   input: "input"
@@ -36,14 +36,51 @@ x-browser-selection: &browser_selection
   tooltip: "A browser is here only when its vendor ships no portable build that updates itself. Vivaldi with its standalone install, Cent Browser with its portable SFX and Opera with its own autoupdate packages gain nothing from this program and are deliberately absent. Every browser here is unpacked from its installer, never installed, and keeps its profile next to the executable."
   tooltip_ru: "Браузер попадает сюда, только если у разработчика нет портативной сборки, которая обновляет сама себя. Vivaldi со своей standalone-установкой, Cent Browser с портативным SFX и Opera с собственными пакетами обновления ничего от этой программы не выигрывают, поэтому их здесь намеренно нет. Каждый браузер отсюда распаковывается из установщика, а не устанавливается, и держит профиль рядом с исполняемым файлом."
 
+
+x-chrome-installer: &chrome_installer
+  id: chrome_download_url
+  type: "text"
+  section: "advanced"
+  group: "source"
+  label: "Chrome installer URL"
+  label_ru: "Ссылка установщика Chrome"
+  default: ""
+  hint: "Blank uses the official source."
+  hint_ru: "Пусто — официальный источник."
+  tooltip: "Optional HTTP(S) URL of a full standalone installer. A custom Chrome file is fetched afresh for every build/update; its version is read from the unpacked executable rather than the stable version API."
+  tooltip_ru: "Необязательная HTTP(S)-ссылка на полный standalone-установщик. Chrome по своей ссылке скачивается заново при каждой сборке или обновлении; версия читается из распакованного файла, а не из API стабильного выпуска."
+
+x-yandex-installer: &yandex_installer
+  id: yandex_download_url
+  type: "text"
+  section: "advanced"
+  group: "source"
+  label: "Yandex installer URL"
+  label_ru: "Ссылка установщика Yandex"
+  default: ""
+  hint: "Blank uses the official source."
+  hint_ru: "Пусто — официальный источник."
+  tooltip: "Optional HTTP(S) URL of the full Yandex installer. Redirects use the Windows user agent. A custom file is fetched afresh for every build/update."
+  tooltip_ru: "Необязательная HTTP(S)-ссылка на полный установщик Yandex. Перенаправления обрабатываются с пользовательским агентом Windows. Файл по своей ссылке скачивается заново при каждой сборке или обновлении."
+
+x-yandex-updater: &yandex_updater
+  id: disable_yandex_updater
+  type: "checkbox"
+  group: "options"
+  label: "Disable Yandex updater"
+  label_ru: "Отключить обновлятор Yandex"
+  default: true
+  tooltip: "Only for Yandex: removes service_update.exe inside App. Update the browser through this program afterwards. Off keeps the updater in a newly assembled App; restoring a previously removed file requires a rebuild."
+  tooltip_ru: "Только для Yandex: удаляет service_update.exe внутри App. Обновлять браузер после этого нужно через эту программу. Выключенная галка оставляет обновлятор в заново собранной App; для возврата ранее удалённого файла нужна пересборка."
+
 operations:
   - id: browsers_build
     title: "Build"
     title_ru: "Собрать"
     description: "A folder you can run from anywhere."
     description_ru: "Папка, которую можно запускать откуда угодно."
-    tooltip: "Each selected browser is downloaded together with the Chrome++ wrapper, unpacked and published as a ready build in the Target folder. Nothing is installed into Windows and no administrator rights are needed: the installer is only unpacked, and the profile lives in Data next to the browser, so the whole folder can be copied to a flash drive and carried away. If one browser fails the rest still finish, and the failures are listed at the end."
-    tooltip_ru: "Каждый выбранный браузер скачивается вместе с обёрткой Chrome++, распаковывается и публикуется готовой сборкой в папке назначения. В Windows ничего не устанавливается и права администратора не нужны: установщик только распаковывается, а профиль лежит в папке Data рядом с браузером, поэтому всю папку можно скопировать на флешку и унести с собой. Если один браузер не вышел, остальные всё равно соберутся, а неудачи перечисляются в конце."
+    tooltip: "Each selected browser is downloaded together with the selected portable library, unpacked and published as a ready build in the Target folder. Nothing is installed into Windows and no administrator rights are needed: the installer is only unpacked, and the profile lives in Data next to the browser, so the whole folder can be copied to a flash drive and carried away. If one browser fails the rest still finish, and the failures are listed at the end."
+    tooltip_ru: "Каждый выбранный браузер скачивается вместе с выбранной библиотекой портативности, распаковывается и публикуется готовой сборкой в папке назначения. В Windows ничего не устанавливается и права администратора не нужны: установщик только распаковывается, а профиль лежит в папке Data рядом с браузером, поэтому всю папку можно скопировать на флешку и унести с собой. Если один браузер не вышел, остальные всё равно соберутся, а неудачи перечисляются в конце."
     service: "system_core.services.browsers_portable_service:build_selected"
     kind: "safe"
 
@@ -66,6 +103,126 @@ operations:
     tooltip_ru: "По каждому выбранному браузеру показывает версию, которую разработчик выложил сегодня, рядом с версией сборки на диске - видно, стоит ли вообще запускать обновление. Читает только страницы выпусков и API версий, ничего не скачивает: проверка стоит нескольких небольших запросов."
     service: "system_core.services.browsers_portable_service:check_updates"
     kind: "safe"
+
+
+  - &browsers_library_update
+    id: browsers_library_update
+    title: "Update DLL only"
+    title_ru: "Обновить только DLL"
+    description: "Refresh the library in an existing build."
+    description_ru: "Обновить библиотеку в готовой сборке."
+    tooltip: "Select browsers and a library, then point Source at a build or its parent. Library files are updated in place; browser files, Data and Cache are kept. The same library keeps the existing INI; switching libraries creates the standard INI. A verified cached library is used if its source is unavailable."
+    tooltip_ru: "Выберите браузеры и библиотеку, а в «Источнике» укажите сборку или папку со сборками. На месте обновляются файлы библиотеки; браузер, Data и Cache сохраняются. Для той же библиотеки остаётся прежний INI; при смене создаётся стандартный. При недоступности источника используется проверенный архив выбранной библиотеки."
+    service: "system_core.services.browsers_portable_service:update_libraries_selected"
+    kind: "safe"
+    fields:
+      - <<: *browser_selection
+      - id: portable_engine
+        type: "radio"
+        group: "format"
+        label: "Library"
+        label_ru: "Библиотека"
+        default: "proxy_library"
+        options:
+          - value: "proxy_library"
+            label: "Proxy library"
+            label_ru: "Прокси библиотека"
+          - value: "chrome_plus"
+            label: "Chrome++ (DeftKing)"
+            label_ru: "Chrome++ (DeftKing)"
+          - value: "vivaldi_plus"
+            label: "Vivaldi++"
+      - id: chrome_plus_arch
+        type: "radio"
+        group: "format"
+        label: "Library architecture"
+        label_ru: "Разрядность библиотеки"
+        default: "auto"
+        tooltip: "Auto reads each browser executable. An architecture mismatch is refused before changing any library file."
+        tooltip_ru: "«Авто» читает разрядность из каждого браузера. Несовпадение отклоняется до изменения файлов библиотеки."
+        options:
+          - value: "auto"
+            label: "Auto"
+            label_ru: "Авто"
+          - value: "x64"
+            label: "x64"
+          - value: "x86"
+            label: "x86"
+          - value: "arm64"
+            label: "ARM64"
+      - id: guard_defender
+        type: "checkbox"
+        group: "options"
+        label: "Work around Defender during update"
+        label_ru: "Обойти Defender на время обновления"
+        default: true
+        tooltip: "Temporarily excludes the workspace and the actual build folder, then removes the exclusion. No action when Defender is inactive."
+        tooltip_ru: "На время замены DLL исключает рабочую папку и саму сборку, затем снимает исключение. При выключенном Defender ничего не делает."
+      - id: keep_temp
+        type: "checkbox"
+        section: "advanced"
+        group: "run"
+        label: "Keep working files"
+        label_ru: "Оставить рабочие файлы"
+        default: false
+
+  - &ready_portable_download
+    id: ready_portable_download
+    title: "Download"
+    title_ru: "Скачать"
+    description: "Official portable packages and installers."
+    description_ru: "Официальные портативки и установщики."
+    tooltip: "Downloads the official Cent Browser portable SFX, LibreWolf portable ZIP, Vivaldi installer, or regular DuckDuckGo Windows installer into Browser Downloads in the Target folder. For Vivaldi, open the saved installer and choose Advanced -> Install Standalone. Files keep their original contents and names."
+    tooltip_ru: "Скачивает официальный портативный SFX Cent Browser, портативный ZIP LibreWolf, установщик Vivaldi или обычный установщик DuckDuckGo для Windows в Browser Downloads внутри папки назначения. Для Vivaldi откройте сохранённый установщик и выберите Дополнительно -> Установить автономную версию. Содержимое и названия файлов сохраняются."
+    service: "system_core.services.ready_portable_service:download_selected"
+    kind: "safe"
+    fields:
+      - id: ready_browsers
+        type: "checkboxes"
+        group: "source"
+        label: "Browsers"
+        label_ru: "Браузеры"
+        default: []
+        min_selected: 1
+        options_source: "system_core.services.ready_portable_service:browser_options"
+        hint: "Official files, without DLL replacement."
+        hint_ru: "Официальные файлы, без подмены DLL."
+        tooltip: "Cent Browser: portable self-extracting package. LibreWolf: portable ZIP. Vivaldi: installer with Install Standalone. DuckDuckGo: regular Windows installer. The command only saves files for you to open or unpack yourself."
+        tooltip_ru: "Cent Browser: портативный самораспаковывающийся пакет. LibreWolf: портативный ZIP. Vivaldi: установщик с режимом Standalone. DuckDuckGo: обычный установщик для Windows. Команда только сохраняет файлы для самостоятельного запуска или распаковки."
+      - id: ready_arch
+        type: "radio"
+        group: "format"
+        label: "Architecture"
+        label_ru: "Разрядность"
+        default: "x64"
+        tooltip: "Cent: x86/x64. LibreWolf: x64/ARM64. Vivaldi: x86/x64/ARM64. DuckDuckGo: x64. An unsupported choice is reported for that browser while the remaining downloads continue."
+        tooltip_ru: "Cent: x86/x64. LibreWolf: x64/ARM64. Vivaldi: x86/x64/ARM64. DuckDuckGo: x64. Если разрядность недоступна для одного браузера, остальные файлы всё равно скачиваются."
+        options:
+          - value: "x64"
+            label: "x64"
+            label_ru: "x64"
+          - value: "x86"
+            label: "x86"
+            label_ru: "x86"
+          - value: "arm64"
+            label: "ARM64"
+            label_ru: "ARM64"
+
+
+  - &certificates_stage
+    id: certificates_stage
+    title: "Add to build"
+    title_ru: "Добавить в сборку"
+    description: "Save certificate files in an existing build."
+    description_ru: "Сохранить файлы сертификатов в готовой сборке."
+    tooltip: "Saves the two Russian Trusted CA certificates and install/revoke commands under Certificates in the selected builds. It does not install certificates into Windows or change the browser and profile."
+    tooltip_ru: "Сохраняет два сертификата НУЦ Минцифры и команды установки и отзыва в Certificates выбранных сборок. Сертификаты в Windows не устанавливаются, браузер и профиль не меняются."
+    service: "system_core.services.browsers_portable_service:stage_certificates_selected"
+    kind: "safe"
+    fields:
+      - <<: *browser_selection
+        id: certificate_browsers
+        default: ["chrome"]
 
   - id: certificates_state
     title: "Certificates: check"
@@ -138,6 +295,8 @@ operation_groups:
         fields:
           - <<: *browser_selection
 
+          - <<: *yandex_updater
+
           - id: stage_certificates
             type: "checkbox"
             group: "options"
@@ -154,18 +313,21 @@ operation_groups:
             group: "format"
             label: "Portability"
             label_ru: "Портативность"
-            default: "chrome_plus"
+            default: "proxy_library"
             hint: "Which library sits beside the browser."
             hint_ru: "Какая библиотека лежит рядом с браузером."
-            tooltip: "What keeps the profile inside the build folder. Chrome++ is the wrapper this program started with, widely used and well known - and well known to antivirus heuristics too, which regularly take its `version.dll` for a threat. The proxy library is another `version.dll`, by neyrostalker: it does the same job, blocks writes to the registry outright instead of wiping them afterwards, and Microsoft does not flag it."
-            tooltip_ru: "Чем профиль удерживается внутри папки сборки. Chrome++ - обёртка, с которой эта программа начиналась: распространённая и известная, в том числе эвристикам антивирусов, которые регулярно принимают её `version.dll` за угрозу. Прокси библиотека - другая `version.dll`, авторства neyrostalker: делает ту же работу, запись в реестр не подчищает, а сразу блокирует, и Microsoft на неё не ругается."
+            tooltip: "Proxy library is the default (x86/x64), with all optional INI switches set to 0. Chrome++ comes from DeftKing; Vivaldi++ comes from ca-x. Both alternatives support x86/x64/ARM64. If a source is unavailable, a verified local archive of the selected library is used."
+            tooltip_ru: "По умолчанию используется прокси библиотека (x86/x64), все переключатели INI равны 0. Chrome++ загружается из DeftKing, Vivaldi++ — из ca-x; обе альтернативы поддерживают x86/x64/ARM64. При недоступности источника используется проверенный локальный архив выбранной библиотеки."
             options:
-              - value: "chrome_plus"
-                label: "Chrome++"
-                label_ru: "Chrome++"
               - value: "proxy_library"
                 label: "Proxy library"
                 label_ru: "Прокси библиотека"
+              - value: "chrome_plus"
+                label: "Chrome++ (DeftKing)"
+                label_ru: "Chrome++ (DeftKing)"
+              - value: "vivaldi_plus"
+                label: "Vivaldi++"
+                label_ru: "Vivaldi++"
 
           - id: chrome_plus_arch
             type: "radio"
@@ -175,8 +337,8 @@ operation_groups:
             default: "auto"
             hint: "Auto reads it from the browser."
             hint_ru: "«Авто» читает из самого браузера."
-            tooltip: "Chrome++ is the small wrapper that makes a browser portable: it keeps the profile next to the executable instead of in Windows. Auto reads the architecture out of the browser's own file and is right almost always. A mismatch produces no error message - a 32-bit browser simply ignores a 64-bit wrapper, and the build quietly stops being portable, writing its profile into Windows instead."
-            tooltip_ru: "Chrome++ - маленькая обёртка, которая делает браузер портативным: держит профиль рядом с исполняемым файлом, а не в Windows. «Авто» читает разрядность из самого файла браузера и почти всегда угадывает верно. При несовпадении ошибки не будет: 32-битный браузер просто не загрузит 64-битную обёртку, и сборка молча перестанет быть портативной - профиль уйдёт в Windows."
+            tooltip: "The library architecture must match the browser executable. Proxy library supports x86/x64; Chrome++ (DeftKing) and Vivaldi++ also support ARM64."
+            tooltip_ru: "Разрядность библиотеки должна совпадать с исполняемым файлом браузера. Прокси библиотека поддерживает x86/x64; Chrome++ (DeftKing) и Vivaldi++ также поддерживают ARM64."
             options:
               - value: "auto"
                 label: "Auto"
@@ -194,13 +356,13 @@ operation_groups:
           - id: wipe_registry_on_exit
             type: "checkbox"
             group: "options"
-            label: "Leave no traces in Windows"
-            label_ru: "Не оставлять следов в Windows"
+            label: "Clean registry with Chrome++"
+            label_ru: "Очистить реестр с Chrome++"
             default: false
-            hint: "Only where the browser is not installed."
-            hint_ru: "Только там, где браузер не установлен."
-            tooltip: "A portable build still leaves counters and small settings in the Windows registry, and what this does depends on the wrapper. Chrome++ wipes the browser's branch when it exits. The proxy library blocks the writes outright, so nothing accumulates to be wiped and `Set as default browser` stops working - which a portable build has no business doing anyway. The catch for Chrome++: that branch is shared with the same browser installed on this computer, and wiping it takes the installed copy's settings along."
-            tooltip_ru: "Портативная сборка всё равно оставляет счётчики и мелкие настройки в реестре Windows, и что именно произойдёт, зависит от обёртки. Chrome++ стирает ветку браузера при выходе. Прокси библиотека сразу блокирует запись, поэтому копиться нечему, а «Сделать браузером по умолчанию» перестаёт работать - портативной сборке это и не нужно. Подвох Chrome++: эта ветка общая с тем же браузером, установленным на компьютере, и вместе с ней пропадут его настройки."
+            hint: "Applies only to Chrome++ (DeftKing)."
+            hint_ru: "Только для Chrome++ (DeftKing)."
+            tooltip: "Chrome++ can wipe the browser registry branch on exit where the same browser is not installed. Proxy library switches remain 0; Vivaldi++ does not use this option."
+            tooltip_ru: "Chrome++ может очистить ветку реестра браузера при выходе, если тот же браузер не установлен. Параметры прокси библиотеки остаются нулевыми; Vivaldi++ эту галку не использует."
 
           - id: guard_defender
             type: "checkbox"
@@ -242,6 +404,9 @@ operation_groups:
                 label: "7Z"
                 label_ru: "7Z"
 
+          - <<: *chrome_installer
+          - <<: *yandex_installer
+
           - id: keep_temp
             type: "checkbox"
             section: "advanced"
@@ -254,6 +419,16 @@ operation_groups:
             tooltip: "Downloads and unpacked installers normally disappear from the workspace folder as soon as the build is published, because they are large. Keep them when a build failed and the reason has to be found: the half-finished result is then still on disk and can be looked at."
             tooltip_ru: "Загрузки и распакованные установщики обычно исчезают из папки workspace сразу после публикации сборки - они большие. Оставьте их, если сборка не удалась и нужно понять причину: тогда недоделанный результат останется на диске, и его можно будет посмотреть."
 
+
+  - id: browser_downloads
+    title: "Downloads"
+    title_ru: "Скачивание"
+    description: "Download the vendor's original files."
+    description_ru: "Скачать оригинальные файлы разработчиков."
+    tooltip: "Cent Browser and LibreWolf portable packages, Vivaldi's Standalone installer, and a regular DuckDuckGo installer. Only the original files are downloaded."
+    tooltip_ru: "Портативные пакеты Cent Browser и LibreWolf, установщик Vivaldi с режимом Standalone и обычный установщик DuckDuckGo. Скачиваются только оригинальные файлы."
+    children:
+      - <<: *ready_portable_download
 
   - id: update
     title: "Update"
@@ -280,18 +455,24 @@ operation_groups:
             group: "format"
             label: "Portability"
             label_ru: "Портативность"
-            default: "chrome_plus"
+            default: "proxy_library"
             hint: "Which wrapper to compare against."
             hint_ru: "С какой обёрткой сверять."
-            tooltip: "The check compares two numbers: the browser's own version and the version of the library beside it. Pick the wrapper the build carries."
-            tooltip_ru: "Проверка сравнивает два числа: версию самого браузера и версию библиотеки рядом с ним. Выберите ту обёртку, которая лежит в сборке."
+            tooltip: "Proxy library is the default (x86/x64), with all optional INI switches set to 0. Chrome++ comes from DeftKing; Vivaldi++ comes from ca-x. Both alternatives support x86/x64/ARM64. If a source is unavailable, a verified local archive of the selected library is used."
+            tooltip_ru: "По умолчанию используется прокси библиотека (x86/x64), все переключатели INI равны 0. Chrome++ загружается из DeftKing, Vivaldi++ — из ca-x; обе альтернативы поддерживают x86/x64/ARM64. При недоступности источника используется проверенный локальный архив выбранной библиотеки."
             options:
-              - value: "chrome_plus"
-                label: "Chrome++"
-                label_ru: "Chrome++"
               - value: "proxy_library"
                 label: "Proxy library"
                 label_ru: "Прокси библиотека"
+              - value: "chrome_plus"
+                label: "Chrome++ (DeftKing)"
+                label_ru: "Chrome++ (DeftKing)"
+              - value: "vivaldi_plus"
+                label: "Vivaldi++"
+                label_ru: "Vivaldi++"
+
+          - <<: *chrome_installer
+          - <<: *yandex_installer
 
       - id: browsers_update
         title: "Update"
@@ -316,6 +497,8 @@ operation_groups:
             tooltip: "Normally a build that already carries the published version is skipped and nothing is downloaded. Turn this on for a build whose browser is damaged or was assembled elsewhere: it is then downloaded and replaced regardless of the version. The profile stays untouched either way, so bookmarks and passwords survive the rebuild."
             tooltip_ru: "Обычно сборка с уже опубликованной версией пропускается и ничего не скачивается. Включите для сборки, у которой браузер повреждён или собран не здесь: тогда он будет скачан и заменён независимо от версии. Профиль в любом случае остаётся нетронутым, так что закладки и пароли переживут пересборку."
 
+          - <<: *yandex_updater
+
           - id: stage_certificates
             type: "checkbox"
             group: "options"
@@ -332,18 +515,21 @@ operation_groups:
             group: "format"
             label: "Portability"
             label_ru: "Портативность"
-            default: "chrome_plus"
+            default: "proxy_library"
             hint: "Which library sits beside the browser."
             hint_ru: "Какая библиотека лежит рядом с браузером."
-            tooltip: "What keeps the profile inside the build folder. Chrome++ is the wrapper this program started with, widely used and well known - and well known to antivirus heuristics too, which regularly take its `version.dll` for a threat. The proxy library is another `version.dll`, by neyrostalker: it does the same job, blocks writes to the registry outright instead of wiping them afterwards, and Microsoft does not flag it."
-            tooltip_ru: "Чем профиль удерживается внутри папки сборки. Chrome++ - обёртка, с которой эта программа начиналась: распространённая и известная, в том числе эвристикам антивирусов, которые регулярно принимают её `version.dll` за угрозу. Прокси библиотека - другая `version.dll`, авторства neyrostalker: делает ту же работу, запись в реестр не подчищает, а сразу блокирует, и Microsoft на неё не ругается."
+            tooltip: "Proxy library is the default (x86/x64), with all optional INI switches set to 0. Chrome++ comes from DeftKing; Vivaldi++ comes from ca-x. Both alternatives support x86/x64/ARM64. If a source is unavailable, a verified local archive of the selected library is used."
+            tooltip_ru: "По умолчанию используется прокси библиотека (x86/x64), все переключатели INI равны 0. Chrome++ загружается из DeftKing, Vivaldi++ — из ca-x; обе альтернативы поддерживают x86/x64/ARM64. При недоступности источника используется проверенный локальный архив выбранной библиотеки."
             options:
-              - value: "chrome_plus"
-                label: "Chrome++"
-                label_ru: "Chrome++"
               - value: "proxy_library"
                 label: "Proxy library"
                 label_ru: "Прокси библиотека"
+              - value: "chrome_plus"
+                label: "Chrome++ (DeftKing)"
+                label_ru: "Chrome++ (DeftKing)"
+              - value: "vivaldi_plus"
+                label: "Vivaldi++"
+                label_ru: "Vivaldi++"
 
           - id: chrome_plus_arch
             type: "radio"
@@ -353,8 +539,8 @@ operation_groups:
             default: "auto"
             hint: "Auto reads it from the browser."
             hint_ru: "«Авто» читает из самого браузера."
-            tooltip: "Chrome++ is the small wrapper that makes a browser portable: it keeps the profile next to the executable instead of in Windows. Auto reads the architecture out of the browser's own file and is right almost always. A mismatch produces no error message - a 32-bit browser simply ignores a 64-bit wrapper, and the build quietly stops being portable, writing its profile into Windows instead."
-            tooltip_ru: "Chrome++ - маленькая обёртка, которая делает браузер портативным: держит профиль рядом с исполняемым файлом, а не в Windows. «Авто» читает разрядность из самого файла браузера и почти всегда угадывает верно. При несовпадении ошибки не будет: 32-битный браузер просто не загрузит 64-битную обёртку, и сборка молча перестанет быть портативной - профиль уйдёт в Windows."
+            tooltip: "The library architecture must match the browser executable. Proxy library supports x86/x64; Chrome++ (DeftKing) and Vivaldi++ also support ARM64."
+            tooltip_ru: "Разрядность библиотеки должна совпадать с исполняемым файлом браузера. Прокси библиотека поддерживает x86/x64; Chrome++ (DeftKing) и Vivaldi++ также поддерживают ARM64."
             options:
               - value: "auto"
                 label: "Auto"
@@ -372,13 +558,13 @@ operation_groups:
           - id: wipe_registry_on_exit
             type: "checkbox"
             group: "options"
-            label: "Leave no traces in Windows"
-            label_ru: "Не оставлять следов в Windows"
+            label: "Clean registry with Chrome++"
+            label_ru: "Очистить реестр с Chrome++"
             default: false
-            hint: "Only where the browser is not installed."
-            hint_ru: "Только там, где браузер не установлен."
-            tooltip: "A portable build still leaves counters and small settings in the Windows registry, and what this does depends on the wrapper. Chrome++ wipes the browser's branch when it exits. The proxy library blocks the writes outright, so nothing accumulates to be wiped and `Set as default browser` stops working - which a portable build has no business doing anyway. The catch for Chrome++: that branch is shared with the same browser installed on this computer, and wiping it takes the installed copy's settings along."
-            tooltip_ru: "Портативная сборка всё равно оставляет счётчики и мелкие настройки в реестре Windows, и что именно произойдёт, зависит от обёртки. Chrome++ стирает ветку браузера при выходе. Прокси библиотека сразу блокирует запись, поэтому копиться нечему, а «Сделать браузером по умолчанию» перестаёт работать - портативной сборке это и не нужно. Подвох Chrome++: эта ветка общая с тем же браузером, установленным на компьютере, и вместе с ней пропадут его настройки."
+            hint: "Applies only to Chrome++ (DeftKing)."
+            hint_ru: "Только для Chrome++ (DeftKing)."
+            tooltip: "Chrome++ can wipe the browser registry branch on exit where the same browser is not installed. Proxy library switches remain 0; Vivaldi++ does not use this option."
+            tooltip_ru: "Chrome++ может очистить ветку реестра браузера при выходе, если тот же браузер не установлен. Параметры прокси библиотеки остаются нулевыми; Vivaldi++ эту галку не использует."
 
           - id: guard_defender
             type: "checkbox"
@@ -420,6 +606,9 @@ operation_groups:
                 label: "7Z"
                 label_ru: "7Z"
 
+          - <<: *chrome_installer
+          - <<: *yandex_installer
+
           - id: keep_temp
             type: "checkbox"
             section: "advanced"
@@ -432,13 +621,15 @@ operation_groups:
             tooltip: "Downloads and unpacked installers normally disappear from the workspace folder as soon as the build is published, because they are large. Keep them when a build failed and the reason has to be found: the half-finished result is then still on disk and can be looked at."
             tooltip_ru: "Загрузки и распакованные установщики обычно исчезают из папки workspace сразу после публикации сборки - они большие. Оставьте их, если сборка не удалась и нужно понять причину: тогда недоделанный результат останется на диске, и его можно будет посмотреть."
 
+      - <<: *browsers_library_update
+
   - id: certificates
     title: "Certificate"
     title_ru: "Сертификат"
     description: "Trust for Russian state sites."
     description_ru: "Доверие к российским госсайтам."
-    tooltip: "The certificates go into Windows, into your own account - not into a browser folder, and not into a particular build. They then apply to every Chromium browser on this account, portable builds and installed ones alike, and no administrator rights are needed. Yandex Browser trusts these sites on its own and needs none of it. Each step here is separate: check, install, revoke."
-    tooltip_ru: "Сертификаты ставятся в Windows, в вашу учётную запись, - не в папку браузера и не в отдельную сборку. После этого они действуют для всех браузеров на Chromium в этой учётной записи, и портативных, и установленных; права администратора не нужны. Яндекс.Браузер доверяет таким сайтам сам, ему это не нужно. Каждый шаг здесь отдельный: проверить, установить, отозвать."
+    tooltip: "Add to build saves certificate files and install/revoke commands without changing Windows trust. Install adds trust to the current Windows account. Checking and revoking trust remain separate commands."
+    tooltip_ru: "«Добавить в сборку» сохраняет файлы сертификатов и команды установки/отзыва, не меняя доверие Windows. «Установить» добавляет доверие текущей учётной записи Windows. Проверка и отзыв доверия — отдельные команды."
     children:
       - id: certificates_state
         title: "Check"
@@ -449,6 +640,8 @@ operation_groups:
         tooltip_ru: "Ищет ровно два сертификата по отпечатку и показывает, доверяет ли им уже ваша учётная запись. Только читает хранилища и ничего не меняет, поэтому запускать можно в любой момент - в том числе сразу после установки, чтобы убедиться, что она прошла."
         service: "system_core.services.browsers_portable_service:certificates_state"
         kind: "safe"
+
+      - <<: *certificates_stage
 
       - id: certificates_install
         title: "Install"

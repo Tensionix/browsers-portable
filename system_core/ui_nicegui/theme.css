@@ -273,14 +273,14 @@
           .audion-fields-grid {
             display: grid;
             grid-template-columns: minmax(0, 1fr);
-            gap: 10px;
+            gap: 14px;
             align-items: start;
             width: 100%;
           }
           .audion-field-section {
             min-width: 0;
             width: 100%;
-            padding: 8px 10px 9px;
+            padding: 14px 12px;
             border: 1px solid var(--audion-panel-border);
             border-radius: var(--border-radius-lg);
             background: var(--audion-block-background);
@@ -293,7 +293,7 @@
             font-size: 12px;
             font-weight: 800;
             line-height: 1;
-            margin-bottom: 7px;
+            margin-bottom: 14px;
           }
 /* ========================================================================
    FIELDS
@@ -301,7 +301,7 @@
           .audion-section-fields {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-            gap: 10px 12px;
+            gap: 18px 14px;
             align-items: start;
             width: 100%;
           }
@@ -463,13 +463,13 @@
             font-size: 12px;
             font-weight: 600;
             line-height: 1.2;
-            margin-bottom: 2px;
+            margin-bottom: 8px;
           }
           .audion-field-hint {
             color: var(--audion-muted-text);
             font-size: 11px;
             line-height: 1.2;
-            margin-top: 2px;
+            margin-top: 8px;
           }
 /* ========================================================================
    BASE
@@ -906,23 +906,23 @@
             gap: 4px 10px !important;
             width: 100%;
           }
-          /* The run button is amber, and its caption needs the colour set on
+          /* Run actions use Forest Green; the caption needs the colour set on
              the label span: Quasar's `.text-primary` keeps the element blue. */
           .q-btn.audion-run-action {
-            color: #d8dde2 !important;
-            background: rgba(105, 63, 18, 0.46) !important;
-            border-color: rgba(182, 112, 38, 0.58) !important;
+            color: #ffffff !important;
+            background: #228b22 !important;
+            border-color: #3ea13e !important;
             font-weight: 700 !important;
           }
           .q-btn.audion-run-action:hover {
             color: #eef1f3 !important;
-            background: rgba(132, 78, 22, 0.58) !important;
-            border-color: rgba(214, 138, 48, 0.72) !important;
+            background: #287f28 !important;
+            border-color: #50ae50 !important;
           }
           .q-btn.audion-run-action .q-btn__content,
           .q-btn.audion-run-action .q-btn__content > span,
           .q-btn.audion-run-action .q-btn__content > div {
-            color: #d8dde2 !important;
+            color: #ffffff !important;
             font-weight: 700 !important;
           }
           .q-btn.audion-run-action:hover .q-btn__content,
@@ -958,10 +958,11 @@
             padding-top: 10px;
             border-top: 1px solid var(--audion-divider);
           }
-          /* Root switcher: one window, four tabs, nothing to walk into. */
+          /* Root switcher: centre the section tabs inside the command pane. */
           .audion-ai-tabs {
             display: flex;
             flex-wrap: wrap;
+            justify-content: center;
             gap: 2px;
             border-bottom: 1px solid var(--audion-divider);
             margin-bottom: 10px;
@@ -1210,7 +1211,7 @@
           }
           /* A choice is a row of switch buttons shaped like the action buttons:
              the selected one is filled with the standard Quasar blue, the rest
-             stay outlined. Amber belongs to the run buttons alone, so the three
+             stay outlined. Forest Green belongs to run buttons, so the three
              states - run it, chosen, not chosen - never look alike. */
           /* One width for every switch in a group, laid out on a grid and the
              whole group centred in the pane. Buttons sized by their own caption
@@ -1223,7 +1224,10 @@
             justify-content: center;
             gap: 8px;
             width: 100%;
-            margin-top: 2px;
+            margin-top: 0;
+          }
+          .audion-field-checkboxes .audion-choice-buttons {
+            margin-top: 10px;
           }
           /* Product names differ in length too much for one width: here each
              button takes its own caption plus a margin of air, and the row is
@@ -1309,4 +1313,49 @@
             min-height: 24px !important;
             height: 24px !important;
             font-size: 11px !important;
+          }
+          @media (max-width: 1350px) {
+            .audion-choice-header {
+              flex-wrap: wrap;
+              gap: 8px;
+            }
+            .audion-choice-header .audion-field-label {
+              flex: 0 0 100%;
+              margin-bottom: 4px;
+            }
+          }
+/* Archive controls share one row and wrap as a unit in a narrow pane.
+   The existing field tooltip retains the format explanation. */
+          .audion-field-section-output .audion-section-fields {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 20px;
+          }
+          .audion-field-section-output .audion-field-checkbox {
+            flex: 0 0 auto;
+            width: auto;
+            align-self: center;
+          }
+          .audion-field-section-output .audion-field-radio {
+            display: flex;
+            flex: 1 1 280px;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+            width: auto;
+          }
+          .audion-field-section-output .audion-field-radio .audion-field-label {
+            flex: 0 0 auto;
+            margin-bottom: 0;
+            white-space: nowrap;
+          }
+          .audion-field-section-output .audion-choice-buttons {
+            --audion-choice-button-width: 96px;
+            flex: 0 0 auto;
+            width: auto;
+            justify-content: flex-start;
+          }
+          .audion-field-section-output .audion-field-radio .audion-field-hint {
+            display: none;
           }

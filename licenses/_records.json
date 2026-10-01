@@ -254,7 +254,7 @@
   },
   {
     "name": "fastapi",
-    "version": "0.141.1",
+    "version": "0.142.2",
     "license": "MIT",
     "source": "site-packages",
     "license_files": [
@@ -465,7 +465,7 @@
   },
   {
     "name": "multidict",
-    "version": "6.8.0",
+    "version": "6.9.1",
     "license": "Apache License 2.0",
     "source": "site-packages",
     "license_files": [
@@ -478,7 +478,7 @@
   },
   {
     "name": "nicegui",
-    "version": "3.17.0",
+    "version": "3.17.1",
     "license": "MIT",
     "source": "site-packages",
     "license_files": [
@@ -487,6 +487,19 @@
     "license_fingerprint": "69b23c6bf5e54130cff3bf925dd6699c011f0416c4cdb616336c786d928e0200",
     "legal_document_hashes": [
       "41c065c2081141886f7d3004e3cd4000c1507cc4bf37a063f12be1d53e9db272"
+    ]
+  },
+  {
+    "name": "opentelemetry-api",
+    "version": "1.45.0",
+    "license": "Apache-2.0",
+    "source": "site-packages",
+    "license_files": [
+      "licenses/THIRD_PARTY_NOTICES.txt"
+    ],
+    "license_fingerprint": "e8b19a3f0c88161c8a9ef2183a1c9f57ec753c3ea9ba469a9c17e76bb453bf96",
+    "legal_document_hashes": [
+      "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
     ]
   },
   {
@@ -660,7 +673,7 @@
   },
   {
     "name": "python-dotenv",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "license": "BSD-3-Clause",
     "source": "site-packages",
     "license_files": [
@@ -725,7 +738,7 @@
   },
   {
     "name": "pythonnet",
-    "version": "3.1.0",
+    "version": "3.2.0",
     "license": "MIT",
     "source": "site-packages",
     "license_files": [
@@ -817,7 +830,7 @@
   },
   {
     "name": "soupsieve",
-    "version": "2.9.2",
+    "version": "2.10",
     "license": "MIT",
     "source": "site-packages",
     "license_files": [
@@ -830,7 +843,7 @@
   },
   {
     "name": "starlette",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "license": "BSD-3-Clause",
     "source": "site-packages",
     "license_files": [
@@ -895,7 +908,7 @@
   },
   {
     "name": "uvicorn",
-    "version": "0.53.0",
+    "version": "0.54.0",
     "license": "BSD-3-Clause",
     "source": "site-packages",
     "license_files": [
@@ -908,7 +921,7 @@
   },
   {
     "name": "watchfiles",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "license": "MIT",
     "source": "site-packages",
     "license_files": [
