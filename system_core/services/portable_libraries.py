@@ -11,6 +11,8 @@ import json
 import re
 import zipfile
 
+from system_core.services.long_paths import plain_path
+
 
 ENGINES = ("proxy_library", "chrome_plus", "vivaldi_plus")
 REPOSITORIES = {"chrome_plus": "DeftKing/chrome_plus", "vivaldi_plus": "ca-x/vivaldi_plus"}
@@ -158,7 +160,7 @@ def local_library(context: Any, engine: str, arch: str, cache_root: Path) -> tup
                 asset = LibraryAsset(name, data["url"], path, data["sha256"], path.stat().st_size)
                 candidates.append((asset, data["version"]))
             except (OSError, ValueError, KeyError, RuntimeError, zipfile.BadZipFile) as exc:
-                context.log(f"[WARN] Invalid library reserve {meta}: {exc}")
+                context.log(f"[WARN] Invalid library reserve {plain_path(meta)}: {exc}")
         if candidates:
             return max(candidates, key=lambda item: _version_key(item[1]))
     return None
@@ -188,7 +190,7 @@ def download_library(context: Any, engine: str, arch: str, lookup: Callable,
             raise RuntimeError(f"{LABELS[engine]} ({arch}) is unavailable and has no valid local reserve. "
                                "Restore tools/portable_libraries or choose another library; the build was not published.") from exc
         asset, version = reserve
-        context.log(f"[FALLBACK] {LABELS[engine]} {version}: {asset.path}")
+        context.log(f"[FALLBACK] {LABELS[engine]} {version}: {plain_path(asset.path)}")
         if progress.get("progress_end") is not None:
             context.progress(progress["progress_end"])
         return asset, version
@@ -236,7 +238,7 @@ def install_vivaldi(context: Any, build: Path, archive: Path, arch: str, executa
     for name in ("Data", "Cache"):
         (build / name).mkdir(parents=True, exist_ok=True)
     record_engine(build, "vivaldi_plus")
-    context.log(f"[COPY] Vivaldi++ {arch} -> {app}")
+    context.log(f"[COPY] Vivaldi++ {arch} -> {plain_path(app)}")
     return arch
 
 

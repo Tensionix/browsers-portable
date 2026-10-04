@@ -45,6 +45,15 @@ class BrowserSpec:
     registry_branch: str = ""  # what the browser leaves in HKCU, if anything
     shared_registry_with_installed: bool = True
     user_agent: str = ""
+    # What the executable calls itself in its version resource. Three entries
+    # here are named `chrome.exe`, so a build brought in from elsewhere is told
+    # apart by this, not by the file name. Needed only where the file name is
+    # shared, and set only where it was read off a real binary. Chromium-Gost and
+    # Ungoogled Chromium both say `Chromium`, so nothing here separates those
+    # two: they go by folder name, or by the tick. `browser.exe` and `brave.exe`
+    # belong to one browser each and need no second proof (they say `Yandex` and
+    # `Brave Browser`, read on 4 October 2026).
+    product_name: str = ""
 
 
 # The Windows user agent Yandex insists on; with anything else its download
@@ -68,6 +77,7 @@ BROWSERS: tuple[BrowserSpec, ...] = (
         payload_archive="Chrome.7z",
         payload_directory="Chrome-bin",
         registry_branch=r"HKCU\Software\Google\Chrome",
+        product_name="Google Chrome",
     ),
     BrowserSpec(
         id="yandex",

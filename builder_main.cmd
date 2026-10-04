@@ -31,7 +31,7 @@ goto FALLBACK_MENU
 >>"%MENU_FILE%" echo [03] FZF                                 ^| update_fzf       ^| install/update system_core\fzf.exe
 >>"%MENU_FILE%" echo [04] POWERSHELL                          ^| install_pwsh     ^| optional pwsh for pickers/build helpers
 >>"%MENU_FILE%" echo [05] START LAUNCHER                      ^| build_launcher   ^| rebuild Start.exe launcher
->>"%MENU_FILE%" echo [06] 7-ZIP                              ^| install_7zip     ^| portable 7za.exe, required to unpack browsers
+>>"%MENU_FILE%" echo [06] 7-ZIP                               ^| install_7zip     ^| portable 7za.exe, required to unpack browsers
 >>"%MENU_FILE%" echo [09] PORTABLE OFFLINE                    ^| install_offline  ^| use local runtime and wheelhouse
 >>"%MENU_FILE%" echo.
 >>"%MENU_FILE%" echo [70] CLEAN INSTALL CACHE                 ^| clean_cache      ^| clean install cache/staging/bytecode

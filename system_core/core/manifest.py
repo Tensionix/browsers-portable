@@ -51,6 +51,10 @@ class CommandNode:
     children: tuple["CommandNode", ...] = ()
     tooltip: str = ""
     tooltip_ru: str = ""
+    # Id of a sibling command whose panel this one shares: its button stands to
+    # the left of that command's run button and reads the same fields, instead
+    # of repeating them in a panel of its own.
+    beside: str = ""
 
     def display_title(self, language: str) -> str:
         if language == "ru" and self.title_ru:
@@ -157,6 +161,7 @@ def _parse_command_node(
         parameters=parameters,
         fields=fields,
         children=children,
+        beside=str(item.get("beside", "")).strip(),
     )
 
 
@@ -176,10 +181,34 @@ def load_manifest(path: Path) -> ToolManifest:
         if ":" not in operation.service:
             raise ValueError(f"Operation service must use module:function syntax: {operation.id}")
 
+    def field_ids(node: CommandNode) -> set[str]:
+        return {str(item.get("id", "")).strip() for item in node.fields} - {""}
+
+    def validate_beside(node: CommandNode) -> None:
+        """A command placed beside another runs on that command's fields.
+
+        So the host has to be a sibling with a panel of its own, and it has to
+        offer every field the guest reads - otherwise the guest would run on
+        values nobody can see or change.
+        """
+        siblings = {child.id: child for child in node.children}
+        for child in node.children:
+            if not child.beside:
+                continue
+            host = siblings.get(child.beside)
+            if host is None or host.id == child.id:
+                raise ValueError(f"Command {child.id}: 'beside' must name a sibling command, got {child.beside!r}.")
+            if host.beside or host.children or not host.fields:
+                raise ValueError(f"Command {child.id}: {host.id} has no panel of its own to stand beside.")
+            missing = sorted(field_ids(child) - field_ids(host))
+            if missing:
+                raise ValueError(f"Command {child.id} stands beside {host.id}, which lacks its fields: {missing}.")
+
     def validate_node(node: CommandNode) -> None:
         if not node.id:
             raise ValueError("Command node id is empty.")
         if node.children:
+            validate_beside(node)
             for child in node.children:
                 validate_node(child)
             return

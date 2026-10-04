@@ -439,7 +439,7 @@
   },
   {
     "name": "MarkupSafe",
-    "version": "3.0.3",
+    "version": "3.0.4",
     "license": "BSD-3-Clause",
     "source": "site-packages",
     "license_files": [
@@ -948,7 +948,7 @@
   },
   {
     "name": "websockets",
-    "version": "17.1",
+    "version": "17.2",
     "license": "BSD-3-Clause",
     "source": "site-packages",
     "license_files": [

@@ -41,6 +41,15 @@ Each browser is 120–240 MB of download and about half a gigabyte on disk. The
 builds appear in the Target folder (`output\Portable`); start one with
 `<Browser> Portable.cmd` in its root.
 
+Building the same browser again is safe: when its build is already in the Target
+folder, only `App` inside it is replaced. The profile in `Data`, the cache and
+anything you put into that folder yourself stay as they were.
+
+Choose a Target with a short path. Windows does not open files whose full path is
+longer than 260 characters, and a browser will not start from a folder that deep.
+The build is still made, and the program warns how many of the browser's files
+ended up past that limit: move the folder higher up — it is whole.
+
 If one browser fails, the others are still built — the failures are listed at the
 end.
 
@@ -95,12 +104,28 @@ not install in it.
 
 The `UPDATE` tab.
 
+`CHECK` and `UPDATE` stand side by side in one panel and work from the same
+settings: look first, then change.
+
 `CHECK` shows what has been published next to the version of your build. Nothing
 is downloaded.
+
+A new Chrome reaches users by degrees, and Google does not put it into the
+installer at once. So the comparison is with the version already served to
+everyone, and a build made from the very installer Google holds right now counts
+as current — there is nothing to download yet.
 
 `UPDATE` replaces only the browser inside the build and leaves `Data` and `Cache`
 alone, so the profile stays. A build whose browser and wrapper are both current
 is skipped without downloading.
+
+**No browser has to be ticked.** With nothing ticked under `Browsers`, every build
+found in Source is taken: each one says what browser it holds. Ticks are for
+narrowing that down — updating only Yandex, for example.
+
+**There can be several builds.** Put as many builds into Source as you like —
+different browsers, or several of the same one — each in a folder of its own, and
+they are updated in one run. A failure with one does not stop the rest.
 
 **The update happens where the build lies.** Point Source at its folder — a flash
 drive, a network share, wherever it lives — and it is updated in place. Nothing
@@ -109,6 +134,31 @@ builds.
 
 With no build in Source, the program looks in `output\Portable` — at what it made
 itself.
+
+**A build can come from elsewhere.** Put a portable browser made anywhere into
+Source: the folder can be called anything, and the browser can sit in `Chrome\`,
+in `App\Chrome-bin\`, or right in that folder. The program finds the browser by
+its executable and the profile by its `Local State` file, and the update brings
+the build to its own layout: `App`, `Data`, `Cache`. The profile is only renamed
+into place — never copied and never deleted. `CHECK` says beforehand that the
+layout is not standard.
+
+Nothing that lay beside the browser is deleted. Only the browser itself is
+replaced. Your own folders and files stay where they were, and what is in the way
+of the new layout — the previous packer's launchers and its settings — is moved
+into `Old files` inside the build. Delete that folder yourself once you are sure
+nothing in it is needed.
+
+The folder takes the standard name (for example `Google Chrome Portable`) when it
+is the only build of that browser in Source. Several builds of one browser keep
+their own names — those are how you tell them apart. The folder Source points at
+directly is not renamed either.
+
+The browser has to be closed: otherwise the update of that build stops before the
+download, having touched nothing. Chromium-Gost and Ungoogled Chromium cannot be
+told apart by their files: such a build is recognised by its folder name
+(`Chromium-Gost Portable`, `Ungoogled Chromium Portable`) or by the tick — tick
+one of the two, and a folder of any name is taken to be that one.
 
 `UPDATE DLL ONLY` refreshes the selected library in existing builds. Select the
 browsers, library and architecture (`Auto` reads each browser executable).
@@ -167,7 +217,13 @@ of the same browser, so turn it on only where that browser is not installed.
 
 **Pack into an archive.** Turn it on when the builds are to be handed over: one
 file instead of a folder. The format sits next to it — `ZIP` opens anywhere, `7Z`
-is smaller but needs 7-Zip on the other side.
+is smaller but needs 7-Zip on the other side. On update the archive is named
+after the build's folder, so several builds of one browser give an archive each.
+
+**Cancel.** A cancel takes effect before anything is changed: the download stops,
+the build stays as it was, and the operation ends as not done. If the browser is
+already being put in place, that one replacement is finished and the remaining
+builds are not started.
 
 **Keep working files** (under `Advanced`). Downloads and unpacked installers stay
 in `workspace` — useful when a build failed and the reason has to be found.

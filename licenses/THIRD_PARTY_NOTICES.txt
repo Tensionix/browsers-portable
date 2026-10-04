@@ -241,7 +241,7 @@ BUNDLED COMPONENTS
    Legal documents: L-350d81a24cca
 
 34. MarkupSafe
-   Version: 3.0.3
+   Version: 3.0.4
    License: BSD-3-Clause
    Source type: site-packages
    Provider: not recorded
@@ -493,7 +493,7 @@ BUNDLED COMPONENTS
    Legal documents: L-01b876deaedb, L-e06ef33485e7
 
 70. websockets
-   Version: 17.1
+   Version: 17.2
    License: BSD-3-Clause
    Source type: site-packages
    Provider: not recorded
@@ -2600,7 +2600,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [L-3d6a0c050d8b] LICENSE_1.txt
 SHA256: 3d6a0c050d8bec52fabad502e45fb25bd02bcadbd70dea34d447b6a0ff4e6da8
 Components: websockets
-Captured from: websockets-17.1/LICENSE_1.txt
+Captured from: websockets-17.2/LICENSE_1.txt
 --------------------------------------------------------------------------------
 Copyright (c) Aymeric Augustin and contributors
 
@@ -3165,7 +3165,7 @@ limitations under the License.
 [L-489a8e110850] LICENSE_1txt
 SHA256: 489a8e1108509ed98a37bb983e11e0f7e1d31f0bd8f99a79c8448e7ff37d07ea
 Components: MarkupSafe
-Captured from: markupsafe-3.0.3/LICENSE_1txt
+Captured from: markupsafe-3.0.4/LICENSE_1txt
 --------------------------------------------------------------------------------
 Copyright 2010 Pallets
 

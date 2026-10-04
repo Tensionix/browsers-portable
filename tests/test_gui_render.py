@@ -183,6 +183,57 @@ async def test_migrated_update_controls_reach_the_screen(user: User, fresh_gui, 
     assert gui.state["field_values"]["yandex_download_url"] == ""
 
 
+def _find_command(gui, command_id: str):
+    def walk(nodes):
+        for node in nodes:
+            if node.id == command_id:
+                return node
+            found = walk(node.children)
+            if found is not None:
+                return found
+        return None
+
+    return walk(gui.root_command_nodes())
+
+
+@pytest.mark.anyio
+async def test_check_stands_left_of_update_in_one_panel(user: User, fresh_gui, monkeypatch) -> None:
+    """Check runs on Update's fields, so it is a button in that panel's head.
+
+    The left one: looking first and changing second is the order people act in.
+    A panel of its own would only repeat the browser choice a second time.
+    """
+    gui = fresh_gui
+    monkeypatch.setitem(gui.state, "root_tab", "update")
+    await user.open("/")
+    ru = ui_language(gui) == "ru"
+    check, update = ("Проверить", "Обновить") if ru else ("Check", "Update")
+
+    heads = [
+        [child.text for child in element.default_slot.children if isinstance(child, ui.button)]
+        for element in user.client.elements.values()
+        if "audion-inline-command-head" in element.classes
+    ]
+
+    assert [check, update] in heads, heads
+    assert [check] not in heads, "Check still has a panel of its own"
+    assert sum(captions.count(check) for captions in heads) == 1
+
+
+@pytest.mark.anyio
+async def test_check_and_update_run_with_no_browser_ticked(user: User, fresh_gui, monkeypatch) -> None:
+    """The builds in Source say what they are; only Build needs a browser named."""
+    gui = fresh_gui
+    monkeypatch.setitem(gui.state, "root_tab", "update")
+    await user.open("/")
+
+    assert gui.state["field_values"].get("browsers", []) == []
+    assert gui.validate_pending_fields(_find_command(gui, "browsers_check"))
+    assert gui.validate_pending_fields(_find_command(gui, "browsers_update"))
+    build = _find_command(gui, "browsers_build")
+    assert any(int(field.get("min_selected", 0) or 0) >= 1 for field in build.fields if field.get("id") == "browsers")
+
+
 @pytest.mark.anyio
 async def test_certificate_staging_is_distinct_from_windows_install(user: User, fresh_gui, monkeypatch) -> None:
     gui = fresh_gui

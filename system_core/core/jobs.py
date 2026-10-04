@@ -52,6 +52,17 @@ class JobResult:
     data: dict[str, Any]
 
 
+class OperationCancelled(Exception):
+    """A service stopped because Cancel was pressed.
+
+    Raised by a service at a point where stopping still costs nothing. The
+    runner reports it as an operation that was not done - and without the
+    traceback a failure gets, because nothing failed. Not a `RuntimeError` on
+    purpose: code that answers those by trying another way must not answer a
+    cancel like that.
+    """
+
+
 @dataclass(frozen=True)
 class ProcessResult:
     exit_code: int
@@ -391,6 +402,9 @@ def execute_operation(
             return JobResult(True, "Operation finished.", result)
         return JobResult(True, str(result or "Operation finished."), {})
 
+    except OperationCancelled as exc:
+        context.log(str(exc))
+        return JobResult(False, str(exc), {})
     except Exception as exc:
         context.log(traceback.format_exc())
         return JobResult(False, f"{exc.__class__.__name__}: {exc}", {})

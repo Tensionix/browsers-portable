@@ -1,7 +1,7 @@
 # Audion Build Licenses Scan Report
 
 - Project: **Audion Browsers Portable** (`audion-browsers-portable`)
-- Run: `20261001T210922Z_audion-browsers-portable_e7eefbf1`
+- Run: `20261004T143636Z_audion-browsers-portable_7ea7db6a`
 - Scan root (from the project root): `.`
 - Output (from the project root): `licenses`
 - Status: **PASS**
@@ -26,7 +26,7 @@ No issues detected.
 | annotated-types | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 0.8.0 | 0.8.0 |
 | anyio | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 4.15.1 | 4.15.1 |
 | attrs | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 26.1.0 | 26.1.0 |
-| Audion launcher | `UNCHANGED` | bundled | bundled |
+| Audion launcher | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | bundled | bundled |
 | beautifulsoup4 | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 4.15.0 | 4.15.0 |
 | bidict | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 0.24.1 | 0.24.1 |
 | bottle | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 0.13.4 | 0.13.4 |
@@ -50,7 +50,7 @@ No issues detected.
 | Jinja2 | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 3.1.6 | 3.1.6 |
 | markdown-it-py | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 4.2.0 | 4.2.0 |
 | markdown2 | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 2.5.5 | 2.5.5 |
-| MarkupSafe | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 3.0.3 | 3.0.3 |
+| MarkupSafe | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 3.0.3 | 3.0.4 |
 | mdurl | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 0.1.2 | 0.1.2 |
 | multidict | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 6.9.1 | 6.9.1 |
 | nicegui | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 3.17.1 | 3.17.1 |
@@ -86,7 +86,7 @@ No issues detected.
 | uvicorn | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 0.54.0 | 0.54.0 |
 | watchfiles | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 1.3.0 | 1.3.0 |
 | webencodings | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 0.6.1 | 0.6.1 |
-| websockets | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 17.1 | 17.1 |
+| websockets | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 17.1 | 17.2 |
 | wheel | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 0.48.0 | 0.48.0 |
 | wsproto | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 1.3.2 | 1.3.2 |
 | yarl | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 1.25.1 | 1.25.1 |

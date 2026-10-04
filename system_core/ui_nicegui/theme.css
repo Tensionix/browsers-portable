@@ -457,18 +457,22 @@
             white-space: normal;
             line-height: 1.25;
           }
+          /* Captions are sized to the controls they stand over: 13px beside 30px
+             buttons and 38px cards. At 11-12px they read as footnotes to
+             controls twice their weight. Line heights are whole pixels - at the
+             125% scale a fractional one makes the centring wander. */
           .audion-field-label {
             display: block;
             color: var(--audion-secondary-text);
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 600;
-            line-height: 1.2;
+            line-height: 16px;
             margin-bottom: 8px;
           }
           .audion-field-hint {
             color: var(--audion-muted-text);
-            font-size: 11px;
-            line-height: 1.2;
+            font-size: 12px;
+            line-height: 16px;
             margin-top: 8px;
           }
 /* ========================================================================
@@ -1134,11 +1138,15 @@
           .audion-field-section-advanced {
             --audion-section-accent: #9aa0a6;
           }
+          /* The section title leads its block: bold capitals, and no smaller than
+             the field captions under it. At 11px it was the smallest text in a
+             block it was supposed to head. */
           .audion-field-section .audion-section-title {
-            color: var(--audion-secondary-text);
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.03em;
+            color: var(--audion-text);
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 16px;
+            letter-spacing: 0.06em;
             text-transform: uppercase;
           }
           /* The card, straight from the reference window: a tone-framed cell of
@@ -1154,7 +1162,7 @@
             gap: 2px;
             width: 100%;
             min-width: 0;
-            min-height: 34px;
+            min-height: 38px;
             height: 100%;
             padding: 4px 4px 4px 6px;
             border: 1px solid color-mix(in srgb, var(--audion-card-accent) 34%, var(--audion-panel-border));
@@ -1201,13 +1209,39 @@
             border-color: color-mix(in srgb, var(--audion-card-accent) 88%, white 12%) !important;
             background: color-mix(in srgb, var(--audion-card-accent) 74%, var(--audion-terminal-background)) !important;
           }
+          /* A caption never wraps inside its card: the card grows to the caption
+             instead. A wrapped caption made that card taller than its
+             neighbours and the whole row with it. */
           .audion-checkbox-card .q-checkbox__label {
             min-width: 0;
             color: var(--audion-secondary-text) !important;
             font-size: 13px;
-            line-height: 1.2;
-            white-space: normal;
-            overflow-wrap: anywhere;
+            line-height: 16px;
+            white-space: nowrap;
+            padding-right: 6px;
+          }
+          /* So the cards of a section are laid out in a wrapping row, each as
+             wide as its caption and then sharing what is left. A grid of equal
+             columns cannot do that: it would have to clip the long captions or
+             stretch the short ones. Other fields of the section keep a row of
+             their own. */
+          /* `:where` keeps these no stronger than a plain class rule, so a
+             section with a layout of its own - the archive row below - still
+             wins. The cap stops a card left alone on a wrapped row from
+             stretching into a banner across the pane. */
+          .audion-section-fields:where(:has(> .audion-field-checkbox)) {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: stretch;
+            gap: 10px 12px;
+          }
+          .audion-section-fields:where(:has(> .audion-field-checkbox)) > .audion-field-checkbox {
+            flex: 1 1 auto;
+            width: auto;
+            max-width: 320px;
+          }
+          .audion-section-fields:where(:has(> .audion-field-checkbox)) > .audion-field:where(:not(.audion-field-checkbox)) {
+            flex: 1 1 100%;
           }
           /* A choice is a row of switch buttons shaped like the action buttons:
              the selected one is filled with the standard Quasar blue, the rest
@@ -1257,8 +1291,9 @@
             background: transparent !important;
             border: 1px solid color-mix(in srgb, var(--audion-choice-accent) 68%, transparent) !important;
             border-radius: var(--border-radius-md) !important;
-            font-size: 12px !important;
+            font-size: 13px !important;
             font-weight: 600 !important;
+            line-height: 18px !important;
           }
           .q-btn.audion-choice-button .q-btn__content {
             flex-wrap: nowrap !important;
@@ -1310,9 +1345,10 @@
           }
           .audion-choice-header .audion-action {
             flex: 0 0 auto;
-            min-height: 24px !important;
-            height: 24px !important;
-            font-size: 11px !important;
+            min-height: 26px !important;
+            height: 26px !important;
+            font-size: 12px !important;
+            line-height: 16px !important;
           }
           @media (max-width: 1350px) {
             .audion-choice-header {

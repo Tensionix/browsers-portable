@@ -1,24 +1,26 @@
 {
   "project": "Audion Browsers Portable",
-  "source_file": "E:\\TOOLS\\Refactor\\exec-7e18a37c-6cd5-4403-b37d-e8cb4c92a974.png",
-  "pipeline": "GPT-Image bitmap candidate, normalized to 1024 PNG and 7-size ICO (16/24/32/48/64/128/256, PNG-encoded frames)",
+  "source_file": "E:\\TOOLS\\output\\audion-browsers-portable-icon-v2\\audion-browsers-portable.svg",
+  "source_in_project": "system_core/icons/app.svg",
+  "pipeline": "Vector drawing by the owner; every frame drawn from the SVG at its own size by install/Build-AppIcon.ps1 (Microsoft Edge without a window), no bitmap is scaled",
   "sizes": {
     "app.png": "1024x1024",
     "app.ico": [
       "16x16",
+      "20x20",
       "24x24",
       "32x32",
+      "40x40",
       "48x48",
       "64x64",
-      "128x128",
       "256x256"
     ]
   },
+  "encoding": "frames up to 64 px are 32-bit bitmaps, 256 px is PNG",
   "style_rules": [
-    "background #17212B",
-    "maximum 3 objects",
-    "no repeated objects",
-    "no text",
-    "bitmap-first"
+    "round emblem filling the canvas, transparent corners",
+    "three blue sectors, white ring, white download arrow",
+    "no dark tile",
+    "no text"
   ]
 }

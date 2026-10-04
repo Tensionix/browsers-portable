@@ -2,10 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import types
 
 import pytest
 
-from system_core.core.jobs import JobContext, decoded_process_lines, decode_process_line, redact_parameters, run_process
+from system_core.core.jobs import (
+    JobContext,
+    OperationCancelled,
+    decoded_process_lines,
+    decode_process_line,
+    execute_operation,
+    redact_parameters,
+    run_process,
+)
 from system_core.core.ansi import ansi_to_html
 from system_core.core.manifest import Operation
 from system_core.core.paths import ensure_project_dirs, get_project_paths
@@ -114,6 +123,39 @@ def test_run_process_accepts_stdin_text(tmp_path: Path) -> None:
     )
 
     assert result.lines == ("HELLO",)
+
+
+def _run_service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, service) -> tuple[object, list[str]]:  # noqa: ANN001
+    """Run one function as an operation, the way the window does."""
+    module = types.ModuleType("service_for_the_job_runner_test")
+    module.run = service
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    paths = get_project_paths(tmp_path)
+    ensure_project_dirs(paths)
+    operation = Operation(id="test", title="Test", description="", service=f"{module.__name__}:run")
+    lines: list[str] = []
+    return execute_operation(paths, operation, log_callback=lines.append), lines
+
+
+def test_a_cancelled_operation_is_not_done_and_is_not_a_crash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def stop(_context: JobContext) -> dict[str, object]:
+        raise OperationCancelled("Cancelled before anything was changed.")
+
+    result, lines = _run_service(tmp_path, monkeypatch, stop)
+
+    assert result.ok is False and result.message == "Cancelled before anything was changed."
+    assert "Cancelled before anything was changed." in lines
+    assert not any("Traceback" in line for line in lines)
+
+
+def test_a_failed_operation_still_gets_its_traceback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(_context: JobContext) -> dict[str, object]:
+        raise RuntimeError("the disk is full")
+
+    result, lines = _run_service(tmp_path, monkeypatch, fail)
+
+    assert result.ok is False and result.message == "RuntimeError: the disk is full"
+    assert any("Traceback" in line for line in lines)
 
 
 def test_redact_parameters_masks_sensitive_values() -> None:

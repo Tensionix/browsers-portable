@@ -2,7 +2,7 @@ tool:
   id: audion_browsers_portable
   name: "Audion Browsers Portable"
   category: "Browsers"
-  version: "1.3.0"
+  version: "1.4.0"
 
 paths:
   input: "input"
@@ -35,6 +35,16 @@ x-browser-selection: &browser_selection
   hint_ru: "Только браузеры без портативной сборки с автообновлением."
   tooltip: "A browser is here only when its vendor ships no portable build that updates itself. Vivaldi with its standalone install, Cent Browser with its portable SFX and Opera with its own autoupdate packages gain nothing from this program and are deliberately absent. Every browser here is unpacked from its installer, never installed, and keeps its profile next to the executable."
   tooltip_ru: "Браузер попадает сюда, только если у разработчика нет портативной сборки, которая обновляет сама себя. Vivaldi со своей standalone-установкой, Cent Browser с портативным SFX и Opera с собственными пакетами обновления ничего от этой программы не выигрывают, поэтому их здесь намеренно нет. Каждый браузер отсюда распаковывается из установщика, а не устанавливается, и держит профиль рядом с исполняемым файлом."
+
+# The same choice where it only narrows: Check and Update recognise a build by
+# its executable, so nothing has to be ticked for them to work.
+x-browser-filter: &browser_filter
+  <<: *browser_selection
+  min_selected: 0
+  hint: "Nothing ticked - every build in Source."
+  hint_ru: "Ничего не отмечено - все сборки из «Источника»."
+  tooltip: "Leave everything unticked and each build found in Source is taken, whatever browser it is: a build is recognised by its executable, so it does not have to be named first. Several builds can lie in Source at once, each in a folder of its own. Tick browsers to narrow that down - or to say which Chromium a build is, since Chromium-Gost and Ungoogled Chromium cannot be told apart by their files."
+  tooltip_ru: "Оставьте всё неотмеченным - и будут взяты все сборки, найденные в «Источнике», какой бы браузер в них ни был: сборка узнаётся по исполняемому файлу, называть её заранее не нужно. В «Источнике» может лежать сразу несколько сборок, каждая в своей папке. Отметки сужают выбор - и подсказывают, какой именно Chromium лежит в папке: Chromium-Gost и Ungoogled Chromium по файлам не различить."
 
 
 x-chrome-installer: &chrome_installer
@@ -79,8 +89,8 @@ operations:
     title_ru: "Собрать"
     description: "A folder you can run from anywhere."
     description_ru: "Папка, которую можно запускать откуда угодно."
-    tooltip: "Each selected browser is downloaded together with the selected portable library, unpacked and published as a ready build in the Target folder. Nothing is installed into Windows and no administrator rights are needed: the installer is only unpacked, and the profile lives in Data next to the browser, so the whole folder can be copied to a flash drive and carried away. If one browser fails the rest still finish, and the failures are listed at the end."
-    tooltip_ru: "Каждый выбранный браузер скачивается вместе с выбранной библиотекой портативности, распаковывается и публикуется готовой сборкой в папке назначения. В Windows ничего не устанавливается и права администратора не нужны: установщик только распаковывается, а профиль лежит в папке Data рядом с браузером, поэтому всю папку можно скопировать на флешку и унести с собой. Если один браузер не вышел, остальные всё равно соберутся, а неудачи перечисляются в конце."
+    tooltip: "Each selected browser is downloaded together with the selected portable library, unpacked and published as a ready build in the Target folder. Nothing is installed into Windows and no administrator rights are needed: the installer is only unpacked, and the profile lives in Data next to the browser, so the whole folder can be copied to a flash drive and carried away. If a build of that browser is already in the Target folder, only the browser inside it is replaced - the profile and everything else stay. If one browser fails the rest still finish, and the failures are listed at the end."
+    tooltip_ru: "Каждый выбранный браузер скачивается вместе с выбранной библиотекой портативности, распаковывается и публикуется готовой сборкой в папке назначения. В Windows ничего не устанавливается и права администратора не нужны: установщик только распаковывается, а профиль лежит в папке Data рядом с браузером, поэтому всю папку можно скопировать на флешку и унести с собой. Если сборка этого браузера уже лежит в папке назначения, в ней заменяется только браузер - профиль и всё остальное остаются. Если один браузер не вышел, остальные всё равно соберутся, а неудачи перечисляются в конце."
     service: "system_core.services.browsers_portable_service:build_selected"
     kind: "safe"
 
@@ -288,8 +298,8 @@ operation_groups:
         title_ru: "Собрать"
         description: "A folder you can run from anywhere."
         description_ru: "Папка, которую можно запускать откуда угодно."
-        tooltip: "Downloads each selected browser with its wrapper and publishes a ready build into the Target folder. If one browser fails - a page moved, a download broke - the rest still finish, and the failures are listed at the end of the run."
-        tooltip_ru: "Скачивает каждый выбранный браузер вместе с обёрткой и кладёт готовую сборку в папку назначения. Если один браузер не вышел - переехала страница, оборвалась загрузка, - остальные всё равно соберутся, а неудачи перечисляются в конце прогона."
+        tooltip: "Downloads each selected browser with its wrapper and publishes a ready build into the Target folder. If a build of that browser is already there, only the browser inside it is replaced - the profile and everything else stay. If one browser fails - a page moved, a download broke - the rest still finish, and the failures are listed at the end of the run."
+        tooltip_ru: "Скачивает каждый выбранный браузер вместе с обёрткой и кладёт готовую сборку в папку назначения. Если сборка этого браузера там уже лежит, в ней заменяется только браузер - профиль и всё остальное остаются. Если один браузер не вышел - переехала страница, оборвалась загрузка, - остальные всё равно соберутся, а неудачи перечисляются в конце прогона."
         service: "system_core.services.browsers_portable_service:build_selected"
         kind: "safe"
         fields:
@@ -447,8 +457,10 @@ operation_groups:
         tooltip_ru: "Сравнивает версию, выложенную сегодня, с версией сборки и ничего не скачивает. Смотрит сначала в папку из «Источника», затем в output\\Portable, - сборка, которую носят с собой, проверяется раньше локальных."
         service: "system_core.services.browsers_portable_service:check_updates"
         kind: "safe"
+        # Its button stands to the left of Update's and reads that panel's fields.
+        beside: browsers_update
         fields:
-          - <<: *browser_selection
+          - <<: *browser_filter
 
           - id: portable_engine
             type: "radio"
@@ -479,12 +491,12 @@ operation_groups:
         title_ru: "Обновить"
         description: "Fresh version, your profile untouched."
         description_ru: "Свежая версия, ваш профиль на месте."
-        tooltip: "Replaces the browser inside the build and leaves the profile alone, so bookmarks, passwords and extensions stay. A build that already carries the published version, with a current wrapper, is skipped without downloading anything - use `Rebuild without a new version` when it has to be replaced regardless."
-        tooltip_ru: "Меняет в сборке браузер, не трогая профиль: закладки, пароли и расширения остаются. Сборка со свежей версией и актуальной обёрткой пропускается без скачивания - если её всё равно нужно заменить, включите «Пересобрать без новой версии»."
+        tooltip: "Replaces the browser inside the build and leaves the profile alone, so bookmarks, passwords and extensions stay. A build that already carries the published version, with a current wrapper, is skipped without downloading anything - use `Rebuild without a new version` when it has to be replaced regardless. A portable browser made elsewhere can be put into Source as it is: it is found by its executable, updated, and brought to this program's layout - App, Data, Cache - with the profile kept. Nothing that lay beside the browser is deleted: your own files stay where they were, and another packer's launchers go into `Old files` inside the build."
+        tooltip_ru: "Меняет в сборке браузер, не трогая профиль: закладки, пароли и расширения остаются. Сборка со свежей версией и актуальной обёрткой пропускается без скачивания - если её всё равно нужно заменить, включите «Пересобрать без новой версии». Портативный браузер, собранный не здесь, можно положить в «Источник» как есть: он находится по исполняемому файлу, обновляется и приводится к виду этой программы - App, Data, Cache, - а профиль сохраняется. Ничего из лежавшего рядом с браузером не удаляется: ваши файлы остаются на месте, а файлы запуска другого упаковщика переносятся в папку `Old files` внутри сборки."
         service: "system_core.services.browsers_portable_service:update_selected"
         kind: "safe"
         fields:
-          - <<: *browser_selection
+          - <<: *browser_filter
 
           - id: force_update
             type: "checkbox"
@@ -585,8 +597,8 @@ operation_groups:
             default: false
             hint: "Plus an archive in the Target folder."
             hint_ru: "Плюс архив в папке назначения."
-            tooltip: "The updated build is packed into an archive as well and put into the Target folder, ready to hand over. The build itself stays where it was and remains ready to run - the archive is a copy, not a move."
-            tooltip_ru: "Обновлённая сборка дополнительно пакуется в архив и кладётся в папку назначения - можно сразу отдавать. Сама сборка остаётся там же, где была, и по-прежнему готова к запуску: архив - это копия, а не перенос."
+            tooltip: "The updated build is packed into an archive as well and put into the Target folder, ready to hand over. The build itself stays where it was and remains ready to run - the archive is a copy, not a move. The archive is named after the build's folder, so several builds of one browser give an archive each."
+            tooltip_ru: "Обновлённая сборка дополнительно пакуется в архив и кладётся в папку назначения - можно сразу отдавать. Сама сборка остаётся там же, где была, и по-прежнему готова к запуску: архив - это копия, а не перенос. Архив называется по папке сборки, поэтому у нескольких сборок одного браузера у каждой свой архив."
 
           - id: archive_format
             type: "radio"

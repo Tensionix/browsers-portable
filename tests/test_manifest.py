@@ -258,3 +258,54 @@ operation_groups:
     )
     with pytest.raises(ValueError, match="Leaf command service"):
         load_manifest(manifest_path)
+
+
+BESIDE_GROUP = """
+operation_groups:
+  - id: update
+    title: Update
+    children:
+      - id: check
+        title: Check
+        service: pkg.module:check
+        beside: {host}
+        fields:
+          - id: browsers
+            type: checkboxes
+{extra_field}
+      - id: apply
+        title: Apply
+        service: pkg.module:apply
+        fields:
+          - id: browsers
+            type: checkboxes
+          - id: force
+            type: checkbox
+"""
+
+
+def _beside_manifest(tmp_path: Path, host: str, extra_field: str = "") -> Path:
+    return _write_manifest(
+        tmp_path / "config" / "tool_manifest.yaml",
+        BESIDE_GROUP.format(host=host, extra_field=extra_field).strip(),
+    )
+
+
+def test_load_manifest_keeps_the_command_a_button_stands_beside(tmp_path: Path) -> None:
+    manifest = load_manifest(_beside_manifest(tmp_path, "apply"))
+
+    check, apply = manifest.operation_groups[0].children
+    assert check.beside == "apply"
+    assert apply.beside == ""
+
+
+def test_load_manifest_rejects_beside_that_names_no_sibling(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="must name a sibling command"):
+        load_manifest(_beside_manifest(tmp_path, "nowhere"))
+
+
+def test_load_manifest_rejects_beside_a_command_lacking_its_fields(tmp_path: Path) -> None:
+    """The guest runs on the host's fields; one it cannot find there is a silent default."""
+    extra = "          - id: only_here\n            type: text"
+    with pytest.raises(ValueError, match="lacks its fields"):
+        load_manifest(_beside_manifest(tmp_path, "apply", extra))

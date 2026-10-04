@@ -31,9 +31,11 @@ import time
 import uuid
 import zipfile
 
+from system_core.services import build_adoption as adoption
 from system_core.services import portable_libraries as libraries
+from system_core.services.long_paths import MAX_PLAIN_PATH, long_path as _long, plain_path as _plain
 
-from system_core.core.jobs import JobContext, hidden_subprocess_kwargs, utf8_subprocess_env
+from system_core.core.jobs import JobContext, OperationCancelled, hidden_subprocess_kwargs, utf8_subprocess_env
 from system_core.services.browser_registry import BROWSERS, BrowserSpec, browser
 
 
@@ -56,6 +58,11 @@ PROXY_LIBRARY_PROJECT = "neyrostalker/proksi-biblioteka"
 PROXY_LIBRARY_DLL = {"x86": "version x32.dll", "x64": "version x64.dll"}
 CHROME_VERSION_API = (
     "https://versionhistory.googleapis.com/v1/chrome/platforms/win64/channels/stable/versions?pageSize=1"
+)
+# The releases being served right now, each with the share of users it reaches.
+CHROME_RELEASES_API = (
+    "https://versionhistory.googleapis.com/v1/chrome/platforms/win64/channels/stable/versions/all/releases"
+    "?filter=endtime=none&order_by=version%20desc"
 )
 BUILD_STAMP_FILE = "Portable-Build.json"
 YANDEX_UPDATER_EXECUTABLE = "service_update.exe"
@@ -87,6 +94,19 @@ class DownloadedAsset:
     path: Path
     sha256: str
     size: int
+    # What the server called the file, kept only for an address whose file changes.
+    etag: str = ""
+
+
+def _check_cancelled(context: JobContext, before: str) -> None:
+    """Stop here if Cancel was pressed; `before` says what was not done.
+
+    The cancel travels as `OperationCancelled`, which is not a `RuntimeError`:
+    the library download takes those for "the source is unavailable" and falls
+    back to the local reserve, and a cancel must not be answered by carrying on.
+    """
+    if context.cancelled():
+        raise OperationCancelled(f"Cancelled before {before}.")
 
 
 def _param_text(context: JobContext, key: str, default: str = "") -> str:
@@ -136,31 +156,72 @@ def _portable_root(context: JobContext) -> Path:
 
 
 def _archives_dir(context: JobContext) -> Path:
-    path = _portable_root(context) / "_archives"
+    """Where downloads are kept, in the long form: a file name alone can cross the limit."""
+    path = _long(_portable_root(context) / "_archives")
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def _tmp_dir(context: JobContext) -> Path:
-    path = _portable_root(context) / "_tmp"
+    """The work folder, in the long form: everything unpacked under it may run deep."""
+    path = _long(_portable_root(context) / "_tmp")
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def _remove_tree(path: Path) -> None:
-    if not path.exists():
+    target = _long(path)
+    if not target.exists():
         return
 
     def handle_remove_error(function: Any, item_path: str, _exc_info: Any) -> None:
-        os.chmod(item_path, 0o700)
-        function(item_path)
+        # Read-only files are the usual reason; anything already gone is fine.
+        with contextlib.suppress(FileNotFoundError):
+            os.chmod(item_path, 0o700)
+            function(item_path)
 
-    shutil.rmtree(path, onerror=handle_remove_error)
+    shutil.rmtree(target, onerror=handle_remove_error)
+
+
+def _discard_tmp(context: JobContext) -> None:
+    """Clear the work folder without letting a leftover fail the operation.
+
+    The builds are already in place by the time this runs. A file that cannot
+    be removed is worth a line in the log, not a red result that hides what the
+    operation actually did - or the real error that came before it.
+    """
+    try:
+        _remove_tree(_tmp_dir(context))
+    except OSError as exc:
+        context.log(f"[WARN] The work folder could not be cleared: {_plain(_tmp_dir(context))} ({exc})")
+
+
+def _deep_files(folder: Path) -> tuple[int, int, int]:
+    """`(past the limit, all, longest path)` over the files of a folder."""
+    lengths = [len(str(_plain(item))) for item in _long(folder).rglob("*") if item.is_file()]
+    return sum(1 for length in lengths if length > MAX_PLAIN_PATH), len(lengths), max(lengths, default=0)
+
+
+def _warn_deep_build(context: JobContext, name: str, build: Path) -> int:
+    """Say so when the browser ended up deeper than Windows opens by default.
+
+    The build itself is put together at any depth. Whether it then starts is
+    up to Windows, and that is worth knowing before the folder is handed over.
+    """
+    deep, total, longest = _deep_files(build / "App")
+    if deep:
+        context.log(
+            f"[WARN] {name}: {deep} of the {total} files of the browser in {_plain(build)} lie past "
+            f"{MAX_PLAIN_PATH} characters (the longest path is {longest}). Windows opens such files only "
+            "where long paths are switched on, so the browser may not start from here. "
+            "The build is whole: moved to a shorter path it starts."
+        )
+    return deep
 
 
 def _reset_dir(path: Path) -> None:
     _remove_tree(path)
-    path.mkdir(parents=True, exist_ok=True)
+    _long(path).mkdir(parents=True, exist_ok=True)
 
 
 def _sha256(path: Path) -> str:
@@ -182,6 +243,44 @@ def _progress_between(context: JobContext, start: float | None, end: float | Non
     context.progress(start + (end - start) * max(0.0, min(1.0, fraction)))
 
 
+def _clean_etag(value: object) -> str:
+    text = str(value or "").strip()
+    if text.startswith("W/"):
+        text = text[2:]
+    return text.strip('"')
+
+
+def _remote_etag(url: str, user_agent: str = USER_AGENT) -> str:
+    """ETag of the file behind an address, asked for without downloading it.
+
+    Empty when the server names none or cannot be reached; the caller then has
+    nothing to compare. The plain encoding is asked for on purpose: Google adds
+    a suffix to the ETag of the compressed variant of the very same file.
+    """
+    request = Request(
+        url,
+        headers={"User-Agent": user_agent or USER_AGENT, "Accept-Encoding": "identity"},
+        method="HEAD",
+    )
+    try:
+        with urlopen(request, timeout=60) as response:
+            return _clean_etag(response.headers.get("ETag"))
+    except Exception:  # noqa: BLE001 - not knowing is an answer here, never a failed operation
+        return ""
+
+
+def _etag_note(target: Path) -> Path:
+    """Where the ETag of a kept download is written down, beside the file."""
+    return target.with_name(target.name + ".etag")
+
+
+def _kept_etag(target: Path) -> str:
+    try:
+        return _etag_note(target).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
 def _download(
     context: JobContext,
     url: str,
@@ -192,14 +291,26 @@ def _download(
     progress_start: float | None = None,
     progress_end: float | None = None,
     use_cache: bool = True,
+    verify_cache: bool = False,
 ) -> DownloadedAsset:
+    """Fetch a file, or take the copy already kept under the same name.
+
+    `verify_cache` is for an address that stays the same while the file behind
+    it changes. The kept copy is then used only while the server still names
+    the ETag it was fetched with, and the result carries that ETag.
+    """
     target.parent.mkdir(parents=True, exist_ok=True)
     if use_cache and target.exists() and target.stat().st_size > 0:
-        size = target.stat().st_size
-        digest = _sha256(target)
-        context.log(f"[CACHE] {label}: {target.name} ({size:,} bytes)")
-        _progress_between(context, progress_start, progress_end, 1.0)
-        return DownloadedAsset(label, url, target, digest, size)
+        kept = _kept_etag(target) if verify_cache else ""
+        served = _remote_etag(url, user_agent) if verify_cache else ""
+        # A server that names no ETag leaves nothing to compare, and the name decides.
+        if not served or kept == served:
+            size = target.stat().st_size
+            digest = _sha256(target)
+            context.log(f"[CACHE] {label}: {target.name} ({size:,} bytes)")
+            _progress_between(context, progress_start, progress_end, 1.0)
+            return DownloadedAsset(label, url, target, digest, size, kept)
+        context.log(f"[CACHE] {label}: {target.name} is not confirmed as the file the server holds now; downloading it again.")
 
     context.log(f"[DOWNLOAD] {label}")
     context.log(f"[URL] {url}")
@@ -207,12 +318,17 @@ def _download(
     part = target.with_name(target.name + ".part")
     if part.exists():
         part.unlink()
+    etag = ""
     try:
         with urlopen(request, timeout=120) as response, part.open("wb") as handle:
             total = int(response.headers.get("Content-Length") or 0)
+            if verify_cache:
+                etag = _clean_etag(response.headers.get("ETag"))
             downloaded = 0
             last_logged_percent = -10
             while True:
+                # A browser is hundreds of megabytes; Cancel must not wait for all of them.
+                _check_cancelled(context, f"{label} was downloaded")
                 chunk = response.read(1024 * 1024)
                 if not chunk:
                     break
@@ -228,15 +344,24 @@ def _download(
             if total <= 0:
                 _progress_between(context, progress_start, progress_end, 1.0)
         part.replace(target)
+    except OperationCancelled:
+        part.unlink(missing_ok=True)
+        raise
     except (HTTPError, URLError, TimeoutError) as exc:
         if part.exists():
             part.unlink()
         raise RuntimeError(f"Download failed: {url} ({exc})") from exc
+    if verify_cache:
+        # A stale note would vouch for a file it never described.
+        if etag:
+            _etag_note(target).write_text(etag, encoding="utf-8")
+        else:
+            _etag_note(target).unlink(missing_ok=True)
     size = target.stat().st_size
     digest = _sha256(target)
     context.log(f"[OK] {target.name} ({size:,} bytes)")
     context.log(f"[SHA256] {digest}")
-    return DownloadedAsset(label, url, target, digest, size)
+    return DownloadedAsset(label, url, target, digest, size, etag)
 
 
 # ---------------------------------------------------------------------------
@@ -323,7 +448,44 @@ def proxy_library_release() -> tuple[str, str]:
     return version, f"{PROXY_LIBRARY_HOST}/project/{PROXY_LIBRARY_PROJECT}/file/downloadAll?branch={version}&format=zip"
 
 
+def _fully_released(releases: list[dict[str, Any]]) -> str:
+    """The version everyone is served, out of the releases live right now.
+
+    Google rolls a new stable out by degrees, and the newest number is not what
+    the installer carries: on 4 October 2026 `155.0.8059.26` was the highest
+    stable version and reached under 1% of users, while `154.0.8037.98` reached
+    all of them - and that is what `ChromeStandaloneSetup64.exe` held. Taking the
+    highest number announced an update the installer could not deliver, and the
+    check went on announcing it after every update.
+
+    So: the highest version served to everyone, and, while none is yet, the one
+    served to the most.
+    """
+    live: list[tuple[float, tuple[int, ...], str]] = []
+    for item in releases:
+        version = str(item.get("version") or "")
+        if not version:
+            continue
+        try:
+            fraction = float(item.get("fraction", 0) or 0)
+        except (TypeError, ValueError):
+            fraction = 0.0
+        live.append((min(fraction, 1.0), _version_tuple(version), version))
+    return max(live)[2] if live else ""
+
+
 def _chrome_api_version() -> str:
+    request = Request(CHROME_RELEASES_API, headers={"User-Agent": USER_AGENT})
+    try:
+        with urlopen(request, timeout=60) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        version = _fully_released(payload.get("releases") or [])
+        if version:
+            return version
+    except Exception:  # noqa: BLE001 - whatever went wrong, the request below is the fallback
+        pass
+    # The release list said nothing usable: the plain list of versions still
+    # names the stable line, which is better than no answer at all.
     request = Request(CHROME_VERSION_API, headers={"User-Agent": USER_AGENT})
     with urlopen(request, timeout=60) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -366,6 +528,16 @@ def published_source(spec: BrowserSpec) -> tuple[str, str, str]:
 
 def _custom_installer_url(context: JobContext, spec: BrowserSpec) -> str:
     return _param_text(context, f"{spec.id}_download_url") if spec.id in {"chrome", "yandex"} else ""
+
+
+def _permanent_installer(context: JobContext, spec: BrowserSpec) -> bool:
+    """Whether the browser comes from one address whose file changes underneath.
+
+    Chrome's does: `ChromeStandaloneSetup64.exe` is always the same link, and
+    nothing about it names the version inside. The server's ETag is what tells
+    one installer from the next.
+    """
+    return spec.version_source == "chrome_api" and not _custom_installer_url(context, spec)
 
 
 def _browser_source(context: JobContext, spec: BrowserSpec) -> tuple[str, str, str]:
@@ -699,7 +871,8 @@ def _run_7z(context: JobContext, args: list[str], *, cwd: Path | None = None) ->
     command = [str(exe), *args]
     result = subprocess.run(
         command,
-        cwd=str(cwd or context.paths.root),
+        # A process cannot start in a folder given in the long form.
+        cwd=str(_plain(cwd) if cwd else context.paths.root),
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -717,10 +890,12 @@ def _run_7z(context: JobContext, args: list[str], *, cwd: Path | None = None) ->
 def _extract_archive(context: JobContext, archive: Path, target: Path) -> None:
     context.log(f"[UNPACK] {archive.name} -> {target.name}")
     _reset_dir(target)
-    _run_7z(context, ["x", str(archive), f"-o{target}", "-y"])
+    # 7-Zip takes the long form for both the archive and the output folder.
+    _run_7z(context, ["x", str(_long(archive)), f"-o{_long(target)}", "-y"])
 
 
 def _copy_tree_contents(source: Path, target: Path) -> None:
+    source, target = _long(source), _long(target)
     target.mkdir(parents=True, exist_ok=True)
     for item in source.iterdir():
         destination = target / item.name
@@ -1042,7 +1217,7 @@ def _place_proxy_library(context: JobContext, spec: BrowserSpec, portable_dir: P
     libraries.record_engine(portable_dir, "proxy_library")
     for name in ("Data", "Cache"):
         (portable_dir / name).mkdir(parents=True, exist_ok=True)
-    context.log(f"[COPY] Proxy library {arch} -> {app_dir}")
+    context.log(f"[COPY] Proxy library {arch} -> {_plain(app_dir)}")
     return arch
 
 
@@ -1097,7 +1272,7 @@ def _write_launcher(context: JobContext, spec: BrowserSpec, portable_dir: Path) 
 
 def build_versions(spec: BrowserSpec, portable_dir: Path) -> tuple[str, str]:
     """`(browser version, Chrome++ version)`, read from the build itself."""
-    app_dir = portable_dir / "App"
+    app_dir = _long(portable_dir / "App")
     version = _file_version(app_dir / spec.executable)
     if not version and app_dir.is_dir():
         folders = sorted(
@@ -1123,6 +1298,40 @@ def _write_build_stamp(context: JobContext, spec: BrowserSpec, portable_dir: Pat
     )
 
 
+def _build_stamp(build: Path) -> dict[str, Any]:
+    """What the build note says; empty when there is none or it cannot be read."""
+    try:
+        saved = json.loads(_long(build / BUILD_STAMP_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return saved if isinstance(saved, dict) else {}
+
+
+def _installer_unchanged(
+    context: JobContext, spec: BrowserSpec, build: Path, current: str, seen: dict[str, str]
+) -> bool:
+    """Whether the vendor still serves the very installer this build was made from.
+
+    The list of versions and the installer are two separate things, and the
+    list can name a version the installer does not carry yet. A build that
+    still holds what came out of the file now on the server has nothing to gain
+    from another update, whatever the list says.
+
+    `seen` keeps the server's answer for the length of one operation.
+    """
+    if not _permanent_installer(context, spec):
+        return False
+    stamp = _build_stamp(build)
+    made_from = str(stamp.get("installer_etag") or "")
+    # The note must describe the browser that is there: an App swapped by hand
+    # is no longer what the installer produced.
+    if not made_from or not same_version(str(stamp.get("browser_version") or ""), current):
+        return False
+    if spec.url not in seen:
+        seen[spec.url] = _remote_etag(spec.url, spec.user_agent or USER_AGENT)
+    return seen[spec.url] == made_from
+
+
 def _safe_output_child(context: JobContext, name: str) -> Path:
     portable = _portable_root(context).resolve()
     target = (portable / name).resolve()
@@ -1132,10 +1341,22 @@ def _safe_output_child(context: JobContext, name: str) -> Path:
 
 
 def _publish(context: JobContext, source_dir: Path, name: str) -> Path:
+    """Put a new build into the Target - only where nothing is there yet.
+
+    It used to clear the place first, and a second Build of the same browser
+    took the profile of the first one with it. A place that is taken is not this
+    function's to empty: the caller replaces App inside what is there instead.
+    """
     target = _safe_output_child(context, name)
-    if target.exists():
-        _remove_tree(target)
-    shutil.copytree(source_dir, target)
+    if _long(target).exists():
+        raise RuntimeError(f"{target} already exists; a new build is put only where the place is free.")
+    try:
+        shutil.copytree(_long(source_dir), _long(target))
+    except OSError:
+        # Only what this very call has put there: the place was free a moment ago.
+        with contextlib.suppress(OSError):
+            _remove_tree(target)
+        raise
     context.log(f"[OK] FOLDER: {target}")
     return target
 
@@ -1143,6 +1364,7 @@ def _publish(context: JobContext, source_dir: Path, name: str) -> Path:
 def _zip_dir(context: JobContext, source_dir: Path, zip_path: Path) -> Path:
     if zip_path.exists():
         zip_path.unlink()
+    source_dir = _long(source_dir)
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for item in source_dir.rglob("*"):
             if item.is_dir():
@@ -1214,7 +1436,7 @@ def _write_certificate_wrappers(context: JobContext, target: Path) -> list[Path]
         path = target / name
         path.write_bytes(("\r\n".join(lines) + "\r\n").encode("utf-8"))
         written.append(path)
-    context.log(f"[OK] certificate wrappers: {target}")
+    context.log(f"[OK] certificate wrappers: {_plain(target)}")
     return written
 
 
@@ -1400,6 +1622,275 @@ def _existing_build(context: JobContext, spec: BrowserSpec) -> Path | None:
     return None
 
 
+def _claims_executable(spec: BrowserSpec, executable: Path) -> bool | None:
+    """Whether the executable found on disk is this browser.
+
+    Three registry entries are called `chrome.exe`, so the file name settles
+    nothing. `True` or `False` when the binary can be told apart by what it says
+    about itself; `None` when it cannot - the name is shared and unverified, or
+    the file says nothing at all - and only the folder name can decide.
+    """
+    product = adoption.file_string(executable, "ProductName").strip().lower()
+    if spec.product_name:
+        return (product == spec.product_name.lower()) if product else None
+    rivals = [
+        item for item in BROWSERS
+        if item.id != spec.id and item.executable.lower() == spec.executable.lower()
+    ]
+    if not rivals:
+        return True
+    if any(item.product_name and item.product_name.lower() == product for item in rivals):
+        return False
+    return None
+
+
+@dataclass(frozen=True)
+class FoundBuild:
+    """One build to act on: which browser it is, and where it lies."""
+
+    spec: BrowserSpec
+    layout: adoption.Layout
+    # The only build of this browser in the Source. Such a build takes the
+    # standard folder name; several of one browser keep the names they came with,
+    # because the names are how the person tells them apart.
+    alone: bool = True
+    # Found in the published Target, not in the Source.
+    published: bool = False
+
+    @property
+    def home(self) -> Path:
+        return self.layout.home
+
+    @property
+    def label(self) -> str:
+        return self.spec.name if self.alone else f"{self.spec.name} ({self.layout.home.name})"
+
+
+def _requested_specs(context: JobContext, key: str = "browsers") -> tuple[list[BrowserSpec], bool]:
+    """The browsers ticked - or every browser, when nothing is.
+
+    Nothing ticked means "whatever is in the Source": the builds say what they
+    are themselves, so naming the browser first is one step too many. The flag
+    tells the two cases apart.
+    """
+    selected = _param_list(context, key)
+    if selected:
+        return [browser(item) for item in selected], False
+    return list(BROWSERS), True
+
+
+def _build_containers(context: JobContext) -> list[Path]:
+    """Folders that hold builds and can never be one themselves."""
+    return [context.paths.root, context.paths.input, context.paths.output, _portable_root(context)]
+
+
+def _accepts_build(spec: BrowserSpec, layout: adoption.Layout, explicit: Iterable[str] = ()) -> bool:
+    """Whether this folder is a build of this browser.
+
+    A build in the standard layout under its own name is what this program
+    made, and it is taken on that alone, as it always was. A build that arrived
+    from elsewhere has to prove what it is: by what its executable says, then by
+    the folder name, and last by the tick - when the person ticked exactly one
+    browser that this executable could be.
+    """
+    home = layout.home
+    named = home.name.lower() == spec.folder.lower()
+    if layout.standard and named:
+        return True
+    executable = layout.browser_dir / spec.executable
+    verdict = _claims_executable(spec, executable)
+    if verdict is not None:
+        return verdict
+    if named:
+        return True
+    ticked = set(explicit)
+    if spec.id not in ticked:
+        return False
+    if any(home.name.lower() == item.folder.lower() for item in BROWSERS if item.id != spec.id):
+        return False
+    rivals = [
+        item for item in BROWSERS
+        if item.id != spec.id
+        and item.id in ticked
+        and item.executable.lower() == spec.executable.lower()
+        and _claims_executable(item, executable) is not False
+    ]
+    return not rivals
+
+
+def _source_scan(context: JobContext, specs: list[BrowserSpec]) -> dict[str, list[adoption.Layout]]:
+    """Every build under the Source, by executable name. One pass per name."""
+    source = _input_root(context)
+    scan: dict[str, list[adoption.Layout]] = {}
+    if not source.is_dir():
+        return scan
+    containers = _build_containers(context)
+    executables = [item.executable for item in BROWSERS]
+    for spec in specs:
+        key = spec.executable.lower()
+        if key in scan:
+            continue
+        layouts: list[adoption.Layout] = []
+        for layout in adoption.builds_in(source, spec.executable, executables, containers):
+            home = layout.home
+            if home.parent == home or any(adoption.same_path(home, item) for item in containers):
+                context.log(
+                    f"[SKIP] {spec.executable} lies loose in {home}. "
+                    "Put the build into a folder of its own."
+                )
+                continue
+            layouts.append(layout)
+        scan[key] = layouts
+    return scan
+
+
+def _published_build(context: JobContext, spec: BrowserSpec) -> adoption.Layout | None:
+    """What this program built itself, in the Target - the last resort, as before."""
+    scope = _portable_root(context) / spec.folder
+    if not scope.is_dir():
+        return None
+    executables = [item.executable for item in BROWSERS]
+    for layout in adoption.builds_in(scope, spec.executable, executables, _build_containers(context)):
+        if adoption.same_path(layout.home, scope) and _accepts_build(spec, layout):
+            return layout
+    return None
+
+
+def _find_builds(
+    context: JobContext,
+    specs: list[BrowserSpec],
+    explicit: Iterable[str] = (),
+) -> tuple[list[FoundBuild], list[adoption.Layout]]:
+    """Every build to act on, and the folders holding a browser nobody could name.
+
+    People bring browsers here to have them updated, and they are rarely ones
+    this program made: the browser sits in `Chrome\\` rather than `App\\`, the
+    folder is called something else, and there may be several at once - each in
+    a folder of its own. So builds are found by their executables, anywhere
+    under the Source; the published Target is looked at only for a browser the
+    Source has no build of, exactly as before.
+    """
+    ticked = list(explicit)
+    scan = _source_scan(context, specs)
+    taken: list[Path] = []
+    found: list[FoundBuild] = []
+    for spec in specs:
+        mine = [
+            layout for layout in scan.get(spec.executable.lower(), [])
+            if not any(adoption.same_path(layout.home, item) for item in taken)
+            and _accepts_build(spec, layout, ticked)
+        ]
+        mine.sort(key=lambda layout: (layout.home.name.lower() != spec.folder.lower(), layout.home.name.lower()))
+        if mine:
+            taken.extend(layout.home for layout in mine)
+            found.extend(FoundBuild(spec, layout, alone=len(mine) == 1) for layout in mine)
+            continue
+        published = _published_build(context, spec)
+        if published is not None:
+            found.append(FoundBuild(spec, published, alone=True, published=True))
+    unclaimed: list[adoption.Layout] = []
+    for layouts in scan.values():
+        for layout in layouts:
+            known = [*taken, *(item.home for item in unclaimed)]
+            if not any(adoption.same_path(layout.home, item) for item in known):
+                unclaimed.append(layout)
+    return found, unclaimed
+
+
+def _report_unclaimed(
+    context: JobContext,
+    specs: list[BrowserSpec],
+    unclaimed: list[adoption.Layout],
+    explicit: Iterable[str] = (),
+) -> None:
+    """Say why a folder with a browser in it was left alone."""
+    asked = {spec.id for spec in specs}
+    ticked = set(explicit)
+    for layout in unclaimed:
+        home = layout.home
+        if any(home.name.lower() == item.folder.lower() for item in BROWSERS if item.id not in asked):
+            continue  # a build of a browser that was not asked for
+        spec = next((item for item in specs if (layout.browser_dir / item.executable).is_file()), None)
+        if spec is None:
+            continue
+        product = adoption.file_string(layout.browser_dir / spec.executable, "ProductName")
+        candidates = [
+            item.name for item in BROWSERS
+            if item.executable.lower() == spec.executable.lower() and not item.product_name and item.id not in ticked
+        ]
+        hint = f" Tick {' or '.join(candidates)} to update it." if candidates else ""
+        context.log(
+            f"[SKIP] {home.name}: {spec.executable} there is {product or 'not identified'}, "
+            f"and that does not say which browser it is.{hint}"
+        )
+
+
+def _adoptable_build(context: JobContext, spec: BrowserSpec) -> adoption.Layout | None:
+    """The first build of this browser, in whatever layout it arrived."""
+    found, _unclaimed = _find_builds(context, [spec])
+    return found[0].layout if found else None
+
+
+def _adopted_home(context: JobContext, spec: BrowserSpec, layout: adoption.Layout, alone: bool = True) -> Path:
+    """Where the build ends up once it is in the standard layout.
+
+    The folder takes the standard name, so the next update finds it without
+    searching. Two cases keep the name they have: the Source itself - renaming
+    the very folder the person pointed at would leave the Source pointing at
+    nothing - and one of several builds of the same browser, which are told
+    apart by exactly those names.
+    """
+    home = layout.home
+    if not alone or adoption.same_path(home, _input_root(context)) or home.name.lower() == spec.folder.lower():
+        return home
+    return home.parent / spec.folder
+
+
+def _is_standard_build(context: JobContext, spec: BrowserSpec, layout: adoption.Layout, alone: bool = True) -> bool:
+    return layout.standard and adoption.same_path(_adopted_home(context, spec, layout, alone), layout.home)
+
+
+def _adoption_blocker(context: JobContext, spec: BrowserSpec, layout: adoption.Layout, alone: bool = True) -> str:
+    """Why this build cannot be rearranged right now - asked before any download."""
+    if adoption.in_use(layout.browser_dir / spec.executable):
+        return "the browser is running. Close it and run the update again"
+    target = _adopted_home(context, spec, layout, alone)
+    if not adoption.same_path(target, layout.home) and target.exists():
+        return (
+            f"the build would be renamed to '{target.name}', and that folder already exists "
+            f"beside it ({target.parent}). Move one of them away first"
+        )
+    return ""
+
+
+def _adopt_build(
+    context: JobContext,
+    spec: BrowserSpec,
+    layout: adoption.Layout,
+    alone: bool = True,
+    browser_names: Iterable[str] | None = None,
+) -> Path:
+    """Bring a foreign build to the standard layout and return its folder.
+
+    `browser_names` are the entries of the new browser. They tell the old
+    browser from whatever else lies beside it; with none given, only the
+    executable itself is known to be the browser's.
+    """
+    names = list(browser_names) if browser_names is not None else [spec.executable]
+    try:
+        adoption.normalize(layout, context.log, _remove_tree, names)
+        target = _adopted_home(context, spec, layout, alone)
+        if not adoption.same_path(target, layout.home):
+            layout.home.rename(target)
+            context.log(f"[ADOPT] folder: {layout.home.name} -> {target.name}")
+        return target
+    except OSError as exc:
+        raise RuntimeError(
+            f"{spec.name}: the build could not be rearranged because a file in it is in use. "
+            f"Close the browser and run the update again. ({exc})"
+        ) from exc
+
+
 def _published_wrapper_version(context: JobContext, engine: str) -> str:
     arch = _chrome_plus_arch(context) or "x64"
     lookup = proxy_library_release if engine == "proxy_library" else lambda: libraries.github_release(engine, arch, github_latest_assets)
@@ -1408,26 +1899,64 @@ def _published_wrapper_version(context: JobContext, engine: str) -> str:
 
 def check_updates(context: JobContext) -> dict[str, object]:
     """What is published against what is on disk. Downloads nothing."""
-    specs = _selected_specs(context)
+    specs, automatic = _requested_specs(context)
+    explicit = [] if automatic else [spec.id for spec in specs]
     engine = _portable_engine(context)
     plus_version = _published_wrapper_version(context, engine)
+    found, unclaimed = _find_builds(context, specs, explicit)
+    _report_unclaimed(context, specs, unclaimed, explicit)
+
+    # One line per build. A ticked browser with no build still gets its line -
+    # what was published is worth knowing on its own. With nothing ticked only
+    # what is actually there is listed, and an empty Source falls back to what
+    # every browser has published.
+    targets: list[tuple[BrowserSpec, FoundBuild | None]] = []
+    for spec in specs:
+        builds = [item for item in found if item.spec.id == spec.id]
+        if builds:
+            targets.extend((spec, item) for item in builds)
+        elif not automatic or not found:
+            targets.append((spec, None))
+
     rows: list[dict[str, object]] = []
-    for index, spec in enumerate(specs, start=1):
-        try:
-            published, _url, _filename = _browser_source(context, spec)
-        except RuntimeError as exc:
-            context.log(f"[FAIL] {spec.name}: {exc}")
-            rows.append({"browser": spec.name, "error": str(exc)})
-            context.progress(index / len(specs))
+    sources: dict[str, tuple[str, str]] = {}
+    etags: dict[str, str] = {}
+    for index, (spec, item) in enumerate(targets, start=1):
+        label = item.label if item else spec.name
+        if spec.id not in sources:
+            try:
+                sources[spec.id] = (_browser_source(context, spec)[0], "")
+            except RuntimeError as exc:
+                sources[spec.id] = ("", str(exc))
+        published, problem = sources[spec.id]
+        if problem:
+            context.log(f"[FAIL] {label}: {problem}")
+            rows.append({"browser": spec.name, "error": problem})
+            context.progress(index / len(targets))
             continue
-        build = _existing_build(context, spec)
-        current, current_plus = build_versions(spec, build) if build else ("", "")
+        build = item.home if item else None
+        # A build from elsewhere: the browser is not in `App`, so its version is
+        # read where the executable actually is, and its wrapper is not ours.
+        foreign = item is not None and not _is_standard_build(context, spec, item.layout, item.alone)
+        if foreign:
+            current, current_plus = _file_version(item.layout.browser_dir / spec.executable), ""
+        else:
+            current, current_plus = build_versions(spec, build) if build else ("", "")
         needs = bool(published) and not same_version(published, current, spec.version_match)
-        plus_needs = bool(plus_version) and (not same_version(plus_version, current_plus) or bool(build and libraries.needs_refresh(build, engine)))
+        # The list of versions can run ahead of the installer. A build made from
+        # the installer still being served cannot be brought any further.
+        ahead = bool(needs and build and not foreign and _installer_unchanged(context, spec, build, current, etags))
+        needs = needs and not ahead
+        plus_needs = foreign or (
+            bool(plus_version)
+            and (not same_version(plus_version, current_plus) or bool(build and libraries.needs_refresh(build, engine)))
+        )
         state = "not built yet" if not build else ("version unknown" if not published else ("update available" if needs else "up to date"))
         context.log(
-            f"[{spec.name}] published {published or '?'} / build {current or '-'} -> {state}"
-            + ("; wrapper update available" if build and plus_needs else "")
+            f"[{label}] published {published or '?'} / build {current or '-'} -> {state}"
+            + (f"; the installer still carries {current}" if ahead else "")
+            + ("; wrapper update available" if build and plus_needs and not foreign else "")
+            + ("; not in the standard layout - Update rearranges it and keeps the profile" if foreign else "")
         )
         rows.append(
             {
@@ -1437,12 +1966,14 @@ def check_updates(context: JobContext) -> dict[str, object]:
                 "wrapper": current_plus,
                 "chrome_plus": current_plus,
                 "update": needs if published else None,
+                "installer_unchanged": ahead,
                 "wrapper_update": plus_needs,
                 "chrome_plus_update": plus_needs,
+                "foreign_layout": foreign,
                 "path": str(build) if build else "",
             }
         )
-        context.progress(index / len(specs))
+        context.progress(index / len(targets))
     return {
         "portable_engine": engine,
         "wrapper_published": plus_version,
@@ -1462,25 +1993,84 @@ def _replace_app_in_place(context: JobContext, spec: BrowserSpec, target: Path, 
     `Data` and `Cache` are never moved - they simply stay where they are - and
     the new `App` is assembled in full before anything is touched, so a failed
     download cannot leave a half-replaced browser behind.
+
+    It is done in two steps, because the build may lie on another volume than
+    the work folder, and moving a folder across volumes is a copy that can stop
+    halfway: the new App is first brought beside the old one, and only then do
+    the two change places.
     """
-    app_dir = target / "App"
-    retired = target / f"App.replaced-{os.getpid()}"
+    incoming = _bring_app_beside(context, spec, target, staged_app)
+    _swap_app(context, spec, target, incoming.name)
+
+
+def _bring_app_beside(context: JobContext, spec: BrowserSpec, home: Path, staged_app: Path) -> Path:
+    """Put the new App onto the build's own volume, under a name of its own.
+
+    The slow and fallible part of an update, and the build is not touched by
+    it: when the copy fails, what is there is exactly what was there.
+    """
+    # The build may itself lie deep; everything in it is handled in the long form.
+    home = _long(home)
+    if adoption.in_use(home / "App" / spec.executable):
+        raise RuntimeError(
+            f"{spec.name}: the build is in use, so App cannot be replaced. "
+            "Close the browser and run the update again."
+        )
+    incoming = home / f"App.incoming-{os.getpid()}"
+    _remove_tree(incoming)
+    try:
+        shutil.move(str(_long(staged_app)), str(incoming))
+    except OSError as exc:
+        with contextlib.suppress(OSError):
+            _remove_tree(incoming)
+        raise RuntimeError(
+            f"{spec.name}: the new browser could not be copied into {_plain(home)}, "
+            f"and the build is as it was. ({_copy_failure(exc)})"
+        ) from exc
+    return incoming
+
+
+def _copy_failure(exc: OSError) -> str:
+    """Why a copy failed, in a line: `shutil` reports a tree as a list of every file."""
+    if isinstance(exc, shutil.Error) and exc.args and isinstance(exc.args[0], list):
+        reasons: list[str] = []
+        for entry in exc.args[0]:
+            reason = str(entry[-1]) if isinstance(entry, tuple) and entry else str(entry)
+            if reason not in reasons:
+                reasons.append(reason)
+        return "; ".join(reasons[:3])
+    return str(exc)
+
+
+def _swap_app(context: JobContext, spec: BrowserSpec, home: Path, incoming_name: str) -> None:
+    """The old App out and the new one in: two renames on one volume."""
+    home = _long(home)
+    app_dir, incoming = home / "App", home / incoming_name
+    retired = home / f"App.replaced-{os.getpid()}"
     if app_dir.exists():
         try:
             app_dir.rename(retired)
         except OSError as exc:
+            with contextlib.suppress(OSError):
+                _remove_tree(incoming)
             raise RuntimeError(
                 f"{spec.name}: the build is in use, so App could not be replaced. "
                 f"Close the browser and run the update again. ({exc})"
             ) from exc
     try:
-        shutil.move(str(staged_app), str(app_dir))
+        incoming.rename(app_dir)
     except OSError:
         if retired.exists():
             retired.rename(app_dir)
+        with contextlib.suppress(OSError):
+            _remove_tree(incoming)
         raise
-    _remove_tree(retired)
-    context.log(f"[UPDATE] App replaced in place: {target}")
+    try:
+        _remove_tree(retired)
+    except OSError as exc:
+        # The new browser is in place; an old file that would not go is no failure of the update.
+        context.log(f"[WARN] {spec.name}: the old browser was left as {retired.name} in {_plain(home)} ({exc})")
+    context.log(f"[UPDATE] App replaced in place: {_plain(home)}")
 
 
 def _managed_build_file(build: Path, relative: str) -> Path:
@@ -1653,7 +2243,7 @@ def update_libraries_selected(context: JobContext) -> dict[str, object]:
                 context.progress(index / len(specs))
     finally:
         if not _param_bool(context, "keep_temp", False):
-            _remove_tree(_tmp_dir(context))
+            _discard_tmp(context)
     if not updated:
         raise RuntimeError("; ".join(item["error"] for item in failed) or "No existing builds found. Select the build or its parent as Source.")
     return {"updated": updated, "skipped": skipped, "failed": failed, "portable_engine": engine}
@@ -1670,7 +2260,16 @@ def _build_one(
     with_certificates: bool,
     package_archive: bool,
     keep_data_from: Path | None = None,
+    adopt: FoundBuild | None = None,
+    archive_name: str = "",
 ) -> dict[str, object]:
+    """Assemble one browser and put it in place.
+
+    With `keep_data_from` the new App goes into that build and its profile
+    stays; without it a new build is published into the Target. `archive_name`
+    names the archive of a build that is updated - several builds of one
+    browser must not all be packed under the browser's name.
+    """
     published, url, filename = _browser_source(context, spec)
     context.log(f"[{spec.name}] published: {published or 'unknown'}")
     asset = _download(
@@ -1680,15 +2279,18 @@ def _build_one(
         f"{spec.name} {published}".strip(),
         user_agent=spec.user_agent or USER_AGENT,
         use_cache=not bool(_custom_installer_url(context, spec)),
+        verify_cache=_permanent_installer(context, spec),
     )
 
     work = _tmp_dir(context) / spec.folder
     _remove_tree(work)
     work.mkdir(parents=True, exist_ok=True)
 
+    _check_cancelled(context, f"{spec.name} was unpacked")
     payload = _unpack_browser(context, spec, asset.path)
     app_dir = work / "App"
     app_dir.mkdir(parents=True, exist_ok=True)
+    _check_cancelled(context, f"{spec.name} was assembled")
     context.log(f"[COPY] {payload.name} -> App")
     _copy_tree_contents(payload, app_dir)
     if not (app_dir / spec.executable).exists():
@@ -1711,11 +2313,33 @@ def _build_one(
         wipe_registry=wipe_registry,
     )
 
+    # Everything so far happened in the work folder. From here on somebody's build
+    # is changed, so this is where a cancel still costs nothing.
+    _check_cancelled(context, f"{spec.name} was put in place")
     if keep_data_from is not None:
-        # Update: the freshly assembled App moves into the existing build, and
-        # the Target folder is left for new builds only.
-        _replace_app_in_place(context, spec, keep_data_from, work / "App")
-        home = keep_data_from
+        # The new App is brought beside the build first - the one step that can
+        # fail halfway - and the build is left alone until that has worked.
+        brought_into = adopt.layout.home if adopt is not None else keep_data_from
+        incoming = _bring_app_beside(context, spec, brought_into, work / "App")
+        try:
+            _check_cancelled(context, f"{spec.name} was put in place")
+            # A build made elsewhere is rearranged only now, with the new App
+            # already beside it: a failed download leaves it as it was brought in.
+            if adopt is not None:
+                fresh = [item.name for item in incoming.iterdir()]
+                keep_data_from = _adopt_build(context, spec, adopt.layout, adopt.alone, fresh)
+            # Update: the freshly assembled App takes the place of the old one, and
+            # the Target folder is left for new builds only.
+            _swap_app(context, spec, keep_data_from, incoming.name)
+        except BaseException:
+            for folder in {str(brought_into), str(keep_data_from)}:
+                with contextlib.suppress(OSError):
+                    _remove_tree(Path(folder) / incoming.name)
+            raise
+        # The build may itself lie deep; what is written into it goes the long way too.
+        home = _long(keep_data_from)
+        for name in ("Data", "Cache"):
+            (home / name).mkdir(exist_ok=True)
     else:
         home = work
 
@@ -1727,7 +2351,9 @@ def _build_one(
         home,
         {
             "mode": "update" if keep_data_from is not None else "build",
+            "adopted_from_another_layout": adopt is not None,
             "source_url": asset.url,
+            "installer_etag": asset.etag,
             "portable_engine": engine,
             "chrome_plus_release": plus_version,
             "certificates_staged": bool(with_certificates),
@@ -1736,22 +2362,52 @@ def _build_one(
     )
     version, plus_in_build = build_versions(spec, home)
     if keep_data_from is not None:
-        artifact = _archive_build(context, home, spec.folder) if package_archive else home
+        artifact = _archive_build(context, home, archive_name or spec.folder) if package_archive else home
     else:
         artifact = _archive_build(context, work, spec.folder) if package_archive else _publish(context, work, spec.folder)
+    # Only a folder can lie too deep; an archive is unpacked wherever it is taken.
+    placed = home if keep_data_from is not None else (None if package_archive else artifact)
     return {
         "browser": spec.name,
         "id": spec.id,
+        "deep_paths": _warn_deep_build(context, spec.name, placed) if placed else 0,
         "version": version or published,
         "portable_engine": engine,
         "wrapper_version": plus_in_build or plus_version,
         "chrome_plus_version": plus_in_build or plus_version,
-        "artifact": str(artifact),
+        "artifact": str(_plain(artifact)),
         "certificates": bool(certificates),
         "registry_wiped_on_exit": bool(engine == "chrome_plus" and wipe_registry and spec.registry_branch),
         "registry_writes_blocked": False,
         "removed_updaters": removed_updaters,
     }
+
+
+def _built_before(context: JobContext, spec: BrowserSpec) -> Path | None:
+    """The folder a Build of this browser would land in, when it is already there.
+
+    Somebody built the browser, used it, and pressed Build again. The folder
+    holds a profile by now, so the new browser goes into it the way an update
+    does - App is replaced and nothing else is touched.
+    """
+    target = _safe_output_child(context, spec.folder)
+    if not _long(target).exists():
+        return None
+    context.log(
+        f"[KEEP] {spec.name}: {target} is already there. Only its App is replaced; "
+        "Data, Cache and everything else in it stay."
+    )
+    return target
+
+
+def _unique_name(name: str, taken: set[str]) -> str:
+    """`name`, or `name (2)` and so on, whichever nobody in `taken` has yet."""
+    candidate, number = name, 2
+    while candidate.casefold() in taken:
+        candidate = f"{name} ({number})"
+        number += 1
+    taken.add(candidate.casefold())
+    return candidate
 
 
 def build_selected(context: JobContext) -> dict[str, object]:
@@ -1779,38 +2435,53 @@ def build_selected(context: JobContext) -> dict[str, object]:
 
         built: list[dict[str, object]] = []
         failed: list[dict[str, str]] = []
-        for index, spec in enumerate(specs, start=1):
-            context.log(f"[{spec.name}] building {index}/{len(specs)}")
-            try:
-                built.append(
-                    _build_one(
-                        context,
-                        spec,
-                        engine=engine,
-                        plus_archive=plus_archive,
-                        plus_version=plus_version,
-                        wipe_registry=wipe_registry,
-                        with_certificates=with_certificates,
-                        package_archive=package_archive,
+        try:
+            for index, spec in enumerate(specs, start=1):
+                _check_cancelled(context, f"{spec.name} was started")
+                context.log(f"[{spec.name}] building {index}/{len(specs)}")
+                try:
+                    built.append(
+                        _build_one(
+                            context,
+                            spec,
+                            engine=engine,
+                            plus_archive=plus_archive,
+                            plus_version=plus_version,
+                            wipe_registry=wipe_registry,
+                            with_certificates=with_certificates,
+                            package_archive=package_archive,
+                            keep_data_from=None if package_archive else _built_before(context, spec),
+                        )
                     )
-                )
-                context.log(f"[DONE] {spec.name}")
-            except Exception as exc:  # noqa: BLE001 - one browser must not stop the batch
-                context.log(f"[FAIL] {spec.name}: {exc}")
-                failed.append({"browser": spec.name, "error": str(exc)})
-            finally:
-                context.progress(index / len(specs))
-        if not keep_temp:
-            _remove_tree(_tmp_dir(context))
+                    context.log(f"[DONE] {spec.name}")
+                except OperationCancelled:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - one browser must not stop the batch
+                    context.log(f"[FAIL] {spec.name}: {exc}")
+                    failed.append({"browser": spec.name, "error": str(exc)})
+                finally:
+                    context.progress(index / len(specs))
+        except OperationCancelled as exc:
+            done = ", ".join(str(item["browser"]) for item in built) or "nothing"
+            raise OperationCancelled(f"{exc} Built before that: {done}.") from None
+        finally:
+            if not keep_temp:
+                _discard_tmp(context)
     if failed and not built:
         raise RuntimeError("; ".join(f"{item['browser']}: {item['error']}" for item in failed))
     return {"built": built, "failed": failed, "output": str(_portable_root(context))}
 
 
 def update_selected(context: JobContext) -> dict[str, object]:
-    """Refresh App in existing builds, keeping Data and Cache."""
+    """Refresh App in existing builds, keeping Data and Cache.
+
+    Every build found in the Source is updated in one run - each lies in a
+    folder of its own, whatever browser it is. Ticking browsers narrows that
+    down; with nothing ticked the builds themselves say what they are.
+    """
     _require_7zip(context)
-    specs = _selected_specs(context)
+    specs, automatic = _requested_specs(context)
+    explicit = [] if automatic else [spec.id for spec in specs]
     keep_temp = _param_bool(context, "keep_temp", False)
     wipe_registry = _param_bool(context, "wipe_registry_on_exit", False)
     with_certificates = _param_bool(context, "stage_certificates", False)
@@ -1833,31 +2504,73 @@ def update_selected(context: JobContext) -> dict[str, object]:
         updated: list[dict[str, object]] = []
         skipped: list[dict[str, object]] = []
         failed: list[dict[str, str]] = []
-        for index, spec in enumerate(specs, start=1):
-            context.log(f"[{spec.name}] updating {index}/{len(specs)}")
-            try:
-                build = _existing_build(context, spec)
-                if build is None:
+        etags: dict[str, str] = {}
+        archive_names: set[str] = set()
+        found, unclaimed = _find_builds(context, specs, explicit)
+        _report_unclaimed(context, specs, unclaimed, explicit)
+        if not automatic:
+            # A ticked browser with nothing to update is said out loud, as before.
+            present = {item.spec.id for item in found}
+            for spec in specs:
+                if spec.id not in present:
                     context.log(f"[SKIP] {spec.name}: no build found in input or output.")
                     skipped.append({"browser": spec.name, "reason": "no build"})
-                    continue
-                current, current_plus = build_versions(spec, build)
-                published, _url, _filename = _browser_source(context, spec)
-                if (
-                    published
-                    and same_version(published, current, spec.version_match)
-                    and same_version(plus_version, current_plus)
-                    and not libraries.needs_refresh(build, engine)
-                    and not force
-                    and not _custom_installer_url(context, spec)
-                ):
-                    removed_updaters = _disable_yandex_updater(context, spec, build)
-                    context.log(f"[SKIP] {spec.name}: {current} is current, wrapper {current_plus or '-'} too.")
-                    skipped.append({"browser": spec.name, "reason": "already current", "version": current,
-                                    "removed_updaters": removed_updaters})
-                    continue
-                updated.append(
-                    _build_one(
+        try:
+            for index, item in enumerate(found, start=1):
+                spec, layout, label = item.spec, item.layout, item.label
+                build = item.home
+                _check_cancelled(context, f"{label} was started")
+                context.log(f"[{label}] updating {index}/{len(found)}")
+                try:
+                    foreign = not _is_standard_build(context, spec, layout, item.alone)
+                    if foreign:
+                        # Asked before anything is downloaded: there is no point in
+                        # fetching a browser that cannot be put in place.
+                        blocker = _adoption_blocker(context, spec, layout, item.alone)
+                        if blocker:
+                            raise RuntimeError(f"{build}: {blocker}.")
+                        current, current_plus = _file_version(layout.browser_dir / spec.executable), ""
+                        browser_at = os.path.relpath(layout.browser_dir, build)
+                        profile_at = os.path.relpath(layout.profile_dir, build) if layout.profile_dir else ""
+                        context.log(
+                            f"[ADOPT] {label}: {build} is not in the standard layout "
+                            f"(browser {'right in the folder' if browser_at == '.' else f'in {browser_at!r}'}, "
+                            f"{f'profile in {profile_at!r}' if profile_at else 'no profile yet'}). "
+                            "It is updated and rearranged; the profile stays."
+                        )
+                    else:
+                        current, current_plus = build_versions(spec, build)
+                    published, _url, _filename = _browser_source(context, spec)
+                    matches = bool(published) and same_version(published, current, spec.version_match)
+                    # Same reasoning as in the check: a newer number on the list is
+                    # no update while the installer it would come from is unchanged.
+                    ahead = bool(
+                        published and not matches and not foreign
+                        and _installer_unchanged(context, spec, build, current, etags)
+                    )
+                    if (
+                        not foreign
+                        and (matches or ahead)
+                        and same_version(plus_version, current_plus)
+                        and not libraries.needs_refresh(build, engine)
+                        and not force
+                        and not _custom_installer_url(context, spec)
+                    ):
+                        removed_updaters = _disable_yandex_updater(context, spec, build)
+                        context.log(
+                            f"[SKIP] {label}: {current} is current, wrapper {current_plus or '-'} too."
+                            + (f" {published} is on the list, but the installer still carries {current}." if ahead else "")
+                        )
+                        skipped.append({"browser": spec.name, "reason": "already current", "version": current,
+                                        "folder": build.name, "removed_updaters": removed_updaters})
+                        continue
+                    # An archive is named after the build's own folder, as it will be
+                    # called once updated: two builds of one browser are two archives.
+                    packed_as = ""
+                    if package_archive:
+                        final = _adopted_home(context, spec, layout, item.alone) if foreign else build
+                        packed_as = _unique_name(final.name, archive_names)
+                    result = _build_one(
                         context,
                         spec,
                         engine=engine,
@@ -1867,16 +2580,40 @@ def update_selected(context: JobContext) -> dict[str, object]:
                         with_certificates=with_certificates,
                         package_archive=package_archive,
                         keep_data_from=build,
+                        adopt=item if foreign else None,
+                        archive_name=packed_as,
                     )
-                )
-                context.log(f"[DONE] {spec.name}: {current or '-'} -> {published}")
-            except Exception as exc:  # noqa: BLE001 - one browser must not stop the batch
-                context.log(f"[FAIL] {spec.name}: {exc}")
-                failed.append({"browser": spec.name, "error": str(exc)})
-            finally:
-                context.progress(index / len(specs))
-        if not keep_temp:
-            _remove_tree(_tmp_dir(context))
+                    updated.append(result)
+                    # The number reported is the one read from the browser that was
+                    # put in place. The published one is only what the vendor
+                    # announced, and the file it serves can lag behind that.
+                    installed = str(result.get("version") or "")
+                    context.log(f"[DONE] {label}: {current or '-'} -> {installed or published}")
+                    if published and installed and not same_version(published, installed, spec.version_match):
+                        context.log(
+                            f"[INFO] {label}: the installer carries {installed}; "
+                            f"the published version is {published}."
+                        )
+                except OperationCancelled:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - one build must not stop the batch
+                    context.log(f"[FAIL] {label}: {exc}")
+                    failed.append({"browser": spec.name, "folder": build.name, "error": str(exc)})
+                finally:
+                    context.progress(index / len(found))
+        except OperationCancelled as exc:
+            done = ", ".join(Path(str(item["artifact"])).name for item in updated) or "nothing"
+            raise OperationCancelled(f"{exc} Updated before that: {done}.") from None
+        finally:
+            if not keep_temp:
+                _discard_tmp(context)
+    if automatic and not found:
+        # Nothing was ticked and nothing was found: a green "finished" here would
+        # read as "updated", which is exactly what did not happen.
+        raise RuntimeError(
+            f"No portable build was found in {_input_root(context)} or in {_portable_root(context)}. "
+            "A build is a folder holding the browser; put it into the Source in a folder of its own."
+        )
     if failed and not updated and not any(item["reason"] == "already current" for item in skipped):
         raise RuntimeError("; ".join(item["error"] for item in failed))
     return {"updated": updated, "skipped": skipped, "failed": failed, "output": str(_portable_root(context))}

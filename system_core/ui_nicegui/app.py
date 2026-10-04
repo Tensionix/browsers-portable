@@ -2775,12 +2775,20 @@ def select_root_tab(tab_id: str) -> None:
     command_tree.refresh()
 
 
-def render_root_tab_command(node: CommandNode, path_prefix: list[str]) -> None:
+def render_root_tab_command(
+    node: CommandNode,
+    path_prefix: list[str],
+    guests: list[CommandNode] | None = None,
+) -> None:
     """One command on a tab: a row when it is plain, a panel when it has fields.
 
     A command with fields is laid out where it stands - its own parameters and
     its own run button, named after the action. Walking into a child window to
     press an identical `Run` is what this switcher exists to remove.
+
+    `guests` are the commands the manifest places `beside` this one: they run on
+    the same fields, so each gets a button in this panel's head instead of a
+    panel repeating those fields.
     """
     if node.children or not node.fields:
         command_node_button(node, path_prefix)
@@ -2794,6 +2802,18 @@ def render_root_tab_command(node: CommandNode, path_prefix: list[str]) -> None:
         # carries no second caption to read past.
         with ui.row().classes("audion-inline-command-head w-full items-center gap-2"):
             ui.space()
+            # Guests stand to the left of the panel's own button, in manifest order.
+            for guest in guests or []:
+                guest_button = ui.button(
+                    guest.display_title(settings.language),
+                    on_click=run_pending_click_handler(guest),
+                ).props("dense flat no-wrap").classes(
+                    "audion-action audion-run-action audion-inline-command-run audion-inline-command-guest rounded-lg"
+                )
+                attach_tooltip(
+                    guest_button,
+                    guest.display_tooltip(settings.language) or guest.display_description(settings.language),
+                )
             run_button = ui.button(
                 node.display_title(settings.language),
                 on_click=run_pending_click_handler(node),
@@ -2840,8 +2860,17 @@ def render_root_switcher(nodes: list[CommandNode]) -> None:
         commands = list(active.children)
         if loose and active.id == tabs[-1].id:
             commands.extend(loose)
+        # A command the manifest places beside another has no panel of its own:
+        # its button joins the head of the panel whose fields it reads.
+        hosts = {child.id for child in commands if child.fields and not child.children and not child.beside}
+        guests: dict[str, list[CommandNode]] = {}
         for child in commands:
-            render_root_tab_command(child, [active.id])
+            if child.beside in hosts:
+                guests.setdefault(child.beside, []).append(child)
+        for child in commands:
+            if child.beside in hosts:
+                continue
+            render_root_tab_command(child, [active.id], guests.get(child.id))
 
 
 def render_root_command_sections(nodes: list[CommandNode]) -> None:
