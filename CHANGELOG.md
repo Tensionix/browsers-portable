@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.0.0 — 2026-10-11
+
+The window is new, and every operation can now be run from a console. The engine went through an audit of its own.
+
+- Replace the window: C# on Avalonia instead of NiceGUI in a pywebview frame. `Start.exe` opens `App\AudionBrowsersPortable.exe`; the window carries its own .NET, so nothing is installed. The former window is gone with its launchers (`launcher_gui.cmd` and the rest), its command bar, fzf, the portable PowerShell in `system_core\powershell`, and NiceGUI, pywebview and their dozens of packages: the environment is now Python with PyYAML, 51 MB instead of 123.
+- Run any operation from a console through `browsers_cli.cmd`, with the same settings as the button: `describe` prints the sections, operations and fields as JSON, `run --operation ID [--source] [--target] [--set NAME=VALUE] [--params FILE] [--result FILE] [--cancel-file FILE]` runs one. Exit codes: 0 done, 1 failed or done in part, 130 stopped, 2 a wrong call - refused before anything runs. The window is the face of this command and runs nothing itself; the line it would type is written into its journal at every start.
+- Lay the window out anew: the sections as a row of large buttons under the header; the button that runs a form at the right end of its head, filled with the accent, its description in the tooltip; the rarely needed fields under "Advanced" in sight, nothing folded; a browser as a button with its logo in the colour of that logo; four themes and Russian or English, switched without a restart.
+- Show a download as one live line under the journal - percent, megabytes, speed - instead of ten lines of the journal per file.
+- Write a line of an operation in the colours its author gave it. The window colours only what it says itself: the title of a run, its verdict, a refusal.
+- Stop inside the long steps. STOP is now seen while 7-Zip unpacks or packs, while a build is copied or published, and while a ZIP is written; the operation ends as stopped instead of being ended by the window two minutes later.
+- Write an archive beside its place and put it there only when it is whole. A full Target or a stop used to leave a part of an archive under the name of a finished one, with the archive before it already deleted.
+- Clear the working folders from the window through the Recycle Bin, where the drive has one. The root of a drive, the program and its own folders are refused, judged by where a path really leads; a path that is itself a link is refused by name.
+- Keep the profile with a build named as the Source. Pointing the Source straight at a build - not at the folder holding it - made Update take the browser branch for the build and leave the real profile outside it.
+- Keep a folder named like a date that lies beside a browser from elsewhere (`10.10.2026`, `2025.03.01`). It was taken for the browser's version folder and deleted with the old browser.
+- Do not let a Chromium tick take another browser. A `chrome.exe` that calls itself Cent Browser, Supermium or Iron is left alone, whatever is ticked.
+- Count a download against the size the server announced. A connection that closed early left a cut file in the cache, and every later run took it from there; a kept file that does not open is now removed, and of the downloads of a browser only the last one is kept.
+- Prove a certificate by its thumbprint before anything is done with its file. Whatever lay under the name of the certificate in a shared Target used to be added to the Root store first and compared afterwards.
+- Fetch the certificate files of an update before the browser is swapped. A certificate server that did not answer used to fail an update whose browser was already replaced, and the next run passed the build by as current.
+- Put a build back as it was when rearranging it breaks, and ask once more whether its browser is running right before rearranging. Clear what a run that was ended hard left inside a build - a new browser never put in, an old one never removed - at the next run.
+- Defender guard: restore the script it starts through UAC (it was missing, so nothing was excluded); remember the folders it excluded until the exclusion is seen gone, and take those back with "Defender: remove exclusion" too; report a removal that did not happen as a failure; ask for UAC once for "Update DLL only" instead of once per browser; accept a folder that is the root of a drive.
+- Let Check finish when one vendor does not answer: the row of that browser says why, the others are shown.
+- End Update with an error when the ticked browsers have no build at all, instead of a green "done".
+- Keep the settings file of the portability library (INI) through Update, as "Update DLL only" always did: the same library keeps the file as it was left, another library gets its own defaults. An edited `version.ini` of the proxy library no longer counts as "wrapper update available".
+- Pack the archive of an updated build without its profile: the browser, its launcher, the note of the versions and the certificate files, with `Data` and `Cache` empty. It used to be the whole build folder - bookmarks, passwords and cookies with it - under a tooltip that called it ready to hand over.
+- Find builds for "Update DLL only" and "Add to build" the way Check and Update find them: at any depth under Source, under any folder name, every build of a ticked browser. Both used to look only in Source itself and right under it, by the standard folder name.
+- Read only `%NAME%` in a path. A folder called `$TEMP` used to turn into the temporary folder of the user.
+- Make "Clear workspace" delete what its tooltip names: the downloaded installers and what was unpacked from them, `Portable\_archives` and `Portable\_tmp` in the Target folder.
+- Keep `cleanup_project.cmd` inside the project: with a folder link anywhere in the tree it no longer walks through it.
+
 ## 1.4.0 — 2026-10-04
 
 - Update portable builds made elsewhere. The build is found by the browser executable anywhere under Source — any folder name, with the browser in `Chrome\`, in `App\Chrome-bin\` or flat in the folder — and the profile by its `Local State` file; the update then brings it to the standard App/Data/Cache layout.

@@ -1,0 +1,426 @@
+{
+ "taken_from": "system_core/ui_nicegui/app.py of 1.4.0: operation_from_pending_command() and start_operation()",
+ "source_mark": "SOURCE_MARK",
+ "target_mark": "TARGET_MARK",
+ "operations": {
+  "browsers_build": {
+   "signature": "dd6da5054e933e6f",
+   "form_fields": [
+    "browsers",
+    "disable_yandex_updater",
+    "stage_certificates",
+    "portable_engine",
+    "chrome_plus_arch",
+    "wipe_registry_on_exit",
+    "guard_defender",
+    "package_archive",
+    "archive_format",
+    "chrome_download_url",
+    "yandex_download_url",
+    "keep_temp"
+   ],
+   "defaults": {
+    "browsers": [],
+    "disable_yandex_updater": true,
+    "stage_certificates": false,
+    "portable_engine": "proxy_library",
+    "chrome_plus_arch": "auto",
+    "wipe_registry_on_exit": false,
+    "guard_defender": true,
+    "package_archive": false,
+    "archive_format": "zip",
+    "chrome_download_url": "",
+    "yandex_download_url": "",
+    "keep_temp": false,
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {
+    "browsers": [
+     "chrome",
+     "yandex"
+    ],
+    "disable_yandex_updater": false,
+    "stage_certificates": true,
+    "portable_engine": "vivaldi_plus",
+    "chrome_plus_arch": "arm64",
+    "wipe_registry_on_exit": true,
+    "guard_defender": false,
+    "package_archive": true,
+    "archive_format": "7z",
+    "chrome_download_url": "https://example.invalid/installer.exe",
+    "yandex_download_url": "https://example.invalid/installer.exe",
+    "keep_temp": true
+   },
+   "changed": {
+    "browsers": [
+     "chrome",
+     "yandex"
+    ],
+    "disable_yandex_updater": false,
+    "stage_certificates": true,
+    "portable_engine": "vivaldi_plus",
+    "chrome_plus_arch": "arm64",
+    "wipe_registry_on_exit": true,
+    "guard_defender": false,
+    "package_archive": true,
+    "archive_format": "7z",
+    "chrome_download_url": "https://example.invalid/installer.exe",
+    "yandex_download_url": "https://example.invalid/installer.exe",
+    "keep_temp": true,
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "ready_portable_download": {
+   "signature": "46271ddaa161f8a6",
+   "form_fields": [
+    "ready_browsers",
+    "ready_arch"
+   ],
+   "defaults": {
+    "ready_browsers": [],
+    "ready_arch": "x64",
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {
+    "ready_browsers": [
+     "cent",
+     "vivaldi"
+    ],
+    "ready_arch": "arm64"
+   },
+   "changed": {
+    "ready_browsers": [
+     "cent",
+     "vivaldi"
+    ],
+    "ready_arch": "arm64",
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "browsers_check": {
+   "signature": "c29299b9ea31193a",
+   "form_fields": [
+    "browsers",
+    "portable_engine",
+    "chrome_download_url",
+    "yandex_download_url"
+   ],
+   "defaults": {
+    "browsers": [],
+    "portable_engine": "proxy_library",
+    "chrome_download_url": "",
+    "yandex_download_url": "",
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {
+    "browsers": [
+     "chrome",
+     "yandex"
+    ],
+    "portable_engine": "vivaldi_plus",
+    "chrome_download_url": "https://example.invalid/installer.exe",
+    "yandex_download_url": "https://example.invalid/installer.exe"
+   },
+   "changed": {
+    "browsers": [
+     "chrome",
+     "yandex"
+    ],
+    "portable_engine": "vivaldi_plus",
+    "chrome_download_url": "https://example.invalid/installer.exe",
+    "yandex_download_url": "https://example.invalid/installer.exe",
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "browsers_update": {
+   "signature": "45a6805b1c76c9ff",
+   "form_fields": [
+    "browsers",
+    "force_update",
+    "disable_yandex_updater",
+    "stage_certificates",
+    "portable_engine",
+    "chrome_plus_arch",
+    "wipe_registry_on_exit",
+    "guard_defender",
+    "package_archive",
+    "archive_format",
+    "chrome_download_url",
+    "yandex_download_url",
+    "keep_temp"
+   ],
+   "defaults": {
+    "browsers": [],
+    "force_update": false,
+    "disable_yandex_updater": true,
+    "stage_certificates": false,
+    "portable_engine": "proxy_library",
+    "chrome_plus_arch": "auto",
+    "wipe_registry_on_exit": false,
+    "guard_defender": true,
+    "package_archive": false,
+    "archive_format": "zip",
+    "chrome_download_url": "",
+    "yandex_download_url": "",
+    "keep_temp": false,
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {
+    "browsers": [
+     "chrome",
+     "yandex"
+    ],
+    "force_update": true,
+    "disable_yandex_updater": false,
+    "stage_certificates": true,
+    "portable_engine": "vivaldi_plus",
+    "chrome_plus_arch": "arm64",
+    "wipe_registry_on_exit": true,
+    "guard_defender": false,
+    "package_archive": true,
+    "archive_format": "7z",
+    "chrome_download_url": "https://example.invalid/installer.exe",
+    "yandex_download_url": "https://example.invalid/installer.exe",
+    "keep_temp": true
+   },
+   "changed": {
+    "browsers": [
+     "chrome",
+     "yandex"
+    ],
+    "force_update": true,
+    "disable_yandex_updater": false,
+    "stage_certificates": true,
+    "portable_engine": "vivaldi_plus",
+    "chrome_plus_arch": "arm64",
+    "wipe_registry_on_exit": true,
+    "guard_defender": false,
+    "package_archive": true,
+    "archive_format": "7z",
+    "chrome_download_url": "https://example.invalid/installer.exe",
+    "yandex_download_url": "https://example.invalid/installer.exe",
+    "keep_temp": true,
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "browsers_library_update": {
+   "signature": "0271de570e206b4b",
+   "form_fields": [
+    "browsers",
+    "portable_engine",
+    "chrome_plus_arch",
+    "guard_defender",
+    "keep_temp"
+   ],
+   "defaults": {
+    "browsers": [],
+    "portable_engine": "proxy_library",
+    "chrome_plus_arch": "auto",
+    "guard_defender": true,
+    "keep_temp": false,
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {
+    "browsers": [
+     "chrome",
+     "yandex"
+    ],
+    "portable_engine": "vivaldi_plus",
+    "chrome_plus_arch": "arm64",
+    "guard_defender": false,
+    "keep_temp": true
+   },
+   "changed": {
+    "browsers": [
+     "chrome",
+     "yandex"
+    ],
+    "portable_engine": "vivaldi_plus",
+    "chrome_plus_arch": "arm64",
+    "guard_defender": false,
+    "keep_temp": true,
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "certificates_state": {
+   "signature": "404f978137a6ff5f",
+   "form_fields": [],
+   "defaults": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {},
+   "changed": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "certificates_stage": {
+   "signature": "5f192153a2399a04",
+   "form_fields": [
+    "certificate_browsers"
+   ],
+   "defaults": {
+    "certificate_browsers": [
+     "chrome"
+    ],
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {
+    "certificate_browsers": [
+     "yandex",
+     "brave"
+    ]
+   },
+   "changed": {
+    "certificate_browsers": [
+     "yandex",
+     "brave"
+    ],
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "certificates_install": {
+   "signature": "404f978137a6ff5f",
+   "form_fields": [],
+   "defaults": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {},
+   "changed": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "certificates_remove": {
+   "signature": "404f978137a6ff5f",
+   "form_fields": [],
+   "defaults": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {},
+   "changed": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "install_7zip": {
+   "signature": "404f978137a6ff5f",
+   "form_fields": [],
+   "defaults": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {},
+   "changed": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "defender_exclusion_remove": {
+   "signature": "404f978137a6ff5f",
+   "form_fields": [],
+   "defaults": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {},
+   "changed": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "cleanup_input_output": {
+   "signature": "404f978137a6ff5f",
+   "form_fields": [],
+   "defaults": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {},
+   "changed": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  },
+  "cleanup_workspace": {
+   "signature": "404f978137a6ff5f",
+   "form_fields": [],
+   "defaults": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   },
+   "changed_values": {},
+   "changed": {
+    "gui_input_dir": "SOURCE_MARK",
+    "gui_output_dir": "TARGET_MARK",
+    "input_path": "SOURCE_MARK",
+    "output_path": "TARGET_MARK"
+   }
+  }
+ }
+}

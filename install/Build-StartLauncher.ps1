@@ -148,6 +148,8 @@ $arguments = @(
     "/target:winexe",
     "/platform:anycpu",
     "/optimize+",
+    # The source holds Russian text; without the code page csc reads it as the ANSI of the machine.
+    "/codepage:65001",
     "/out:$output",
     "/win32manifest:$manifest",
     "/reference:System.dll",

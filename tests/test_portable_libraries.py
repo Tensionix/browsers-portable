@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.error import URLError
 import configparser
-import importlib
 import json
 import shutil
 import struct
@@ -14,12 +13,11 @@ import yaml
 from system_core.core.jobs import JobContext
 from system_core.core.manifest import Operation
 from system_core.core.paths import ensure_project_dirs, get_project_paths
+from system_core.services import browsers_portable_service as service
 from system_core.services import portable_libraries as libraries
+from system_core.services.browser_registry import browser
 
 ROOT = Path(__file__).resolve().parents[1]
-SERVICE = {'Audion Browsers Portable': 'browsers', 'Audion Chrome Portable': 'chrome', 'Audion Yandex Portable': 'yandex'}[ROOT.name]
-service = importlib.import_module(f'system_core.services.{SERVICE}_portable_service')
-BULK = SERVICE == 'browsers'
 CASES = [('proxy_library', 'x86'), ('proxy_library', 'x64')] + [(e, a) for e in ['chrome_plus', 'vivaldi_plus'] for a in ['x86', 'x64', 'arm64']]
 
 
@@ -33,6 +31,11 @@ def context(tmp_path, **parameters):
 def bundle(ctx, engine, arch):
     folder = libraries._key(engine, arch)
     source = ROOT / 'tools/portable_libraries' / folder
+    if not source.is_dir():
+        # The reserve of the libraries - the unchanged upstream archives - is not shipped and not
+        # kept in git: the cleanup of the project removes tools\ whole. On a tree without it these
+        # checks have nothing real to read, and say so instead of failing.
+        pytest.skip(f'no local reserve of the libraries: {source.relative_to(ROOT)}')
     target = ctx.paths.root / 'tools/portable_libraries' / folder
     shutil.copytree(source, target, dirs_exist_ok=True)
     meta = next(target.glob('*.json'))
@@ -45,19 +48,15 @@ def offline(*args, **kwargs):
 
 
 def download_wrapper(ctx, engine, arch):
-    return service._download_wrapper(ctx, engine, arch) if BULK else service._download_wrapper(ctx, engine)
+    return service._download_wrapper(ctx, engine, arch)
 
 
 def place(ctx, build, engine, asset):
-    if BULK:
-        from system_core.services.browser_registry import browser
-        return service._place_wrapper(ctx, browser('chrome'), build, engine=engine, archive=asset, wipe_registry=True)
-    downloaded = service.DownloadedAsset(asset.name, 'fixture', asset, libraries._digest(asset), asset.stat().st_size)
-    return service._place_wrapper(ctx, build, engine=engine, asset=downloaded, wipe_registry=True)
+    return service._place_wrapper(ctx, browser('chrome'), build, engine=engine, archive=asset, wipe_registry=True)
 
 
 def fake_browser(build, arch):
-    executable = 'chrome.exe' if BULK else service.BROWSER_EXECUTABLE
+    executable = 'chrome.exe'
     raw = bytearray(70)
     raw[:2] = b'MZ'
     struct.pack_into('<I', raw, 0x3C, 64)
@@ -94,7 +93,7 @@ def test_source_outage_uses_selected_library_and_architecture(tmp_path, monkeypa
     monkeypatch.setattr(service, 'proxy_library_release', offline)
     monkeypatch.setattr(service, 'github_latest_assets', offline)
     asset, version = download_wrapper(ctx, engine, arch)
-    path = asset if BULK else asset.path
+    path = asset
     assert path == expected
     assert version == data['version']
     assert libraries.pe_architecture_bytes(libraries.library_files(path, engine, arch)['version.dll']) == arch
@@ -109,7 +108,7 @@ def test_download_failure_uses_verified_reserve(tmp_path, monkeypatch, engine, a
     monkeypatch.setattr(service, 'github_latest_assets', lambda repo: (data['version'], [(data['name'], data['url'])]))
     monkeypatch.setattr(service, '_download', offline)
     asset, _ = download_wrapper(ctx, engine, arch)
-    assert (asset if BULK else asset.path) == expected
+    assert asset == expected
 
 
 @pytest.mark.parametrize('engine,arch', CASES)
@@ -134,7 +133,7 @@ def test_install_preserves_profile_and_validates_architecture(tmp_path, engine, 
         assert ini['General']['datadir'] == '..\\Data'
         assert ini['General']['cachedir'] == '..\\Cache'
         assert not libraries.needs_refresh(build, engine)
-        launcher = service._write_launcher(ctx, __import__('system_core.services.browser_registry', fromlist=['browser']).browser('chrome'), build) if BULK else service._write_launcher(ctx, build)
+        launcher = service._write_launcher(ctx, browser('chrome'), build)
         raw = launcher.read_bytes()
         assert b'/D "%~dp0App"' in raw
         assert b'\n' not in raw.replace(b'\r\n', b'')
@@ -204,7 +203,8 @@ def test_invalid_download_payload_falls_back_without_publishing_it(tmp_path, eng
     assert not list(service._archives_dir(ctx).rglob('*.json'))
 
 
-def test_existing_nonzero_proxy_ini_is_reset_without_losing_the_profile(tmp_path):
+def test_an_edited_proxy_ini_is_no_update_and_a_fresh_install_writes_the_defaults(tmp_path):
+    """A switch a person turned on is the person's: not a reason to update. Putting the library in anew writes zeros."""
     ctx = context(tmp_path, chrome_plus_arch='x64')
     archive, _ = bundle(ctx, 'proxy_library', 'x64')
     build = tmp_path / 'build'
@@ -213,6 +213,9 @@ def test_existing_nonzero_proxy_ini_is_reset_without_losing_the_profile(tmp_path
     (build / 'Data/keep.txt').write_text('existing profile')
     ini = build / 'App/version.ini'
     ini.write_bytes(ini.read_bytes().replace(b'REGOFF=0', b'REGOFF=1').replace(b'DNSOFF=0', b'DNSOFF=1'))
+    assert not libraries.needs_refresh(build, 'proxy_library')
+    ini.unlink()
+    # Without its file the proxy library keeps nothing in the build: that is a reason.
     assert libraries.needs_refresh(build, 'proxy_library')
     place(ctx, build, 'proxy_library', archive)
     assert not libraries.needs_refresh(build, 'proxy_library')
@@ -234,17 +237,11 @@ def test_complete_build_can_use_reserve_when_library_host_is_offline(tmp_path, m
         target.write_bytes(b'fixture browser installer')
         return service.DownloadedAsset(target.name, url, target, libraries._digest(target), target.stat().st_size)
     monkeypatch.setattr(service, '_download', download)
-    if BULK:
-        monkeypatch.setattr(service, 'published_source', lambda spec: ('152.0.0.0', 'fixture', 'browser.zip'))
-        monkeypatch.setattr(service, '_unpack_browser', lambda *args: payload / 'App')
-        result = service.build_selected(ctx)
-        assert not result['failed']
-        built = result['built'][0]
-    else:
-        monkeypatch.setattr(service, '_extract_browser_payload', lambda *args: payload / 'App')
-        if SERVICE == 'yandex':
-            monkeypatch.setattr(service, 'yandex_available_version', lambda *args: ('152.0.0.0', 'https://fixture.invalid/Yandex.exe'))
-        built = service.build_portable(ctx)
+    monkeypatch.setattr(service, 'published_source', lambda spec: ('152.0.0.0', 'fixture', 'browser.zip'))
+    monkeypatch.setattr(service, '_unpack_browser', lambda *args: payload / 'App')
+    result = service.build_selected(ctx)
+    assert not result['failed']
+    built = result['built'][0]
     artifact = Path(built['artifact'])
     assert libraries.installed_engine(artifact) == engine
     assert (artifact / 'App/version.dll').is_file()

@@ -9,6 +9,7 @@
 - [Why It Exists](#why-it-exists)
 - [Official Downloads](#official-downloads)
 - [Who Is on the DLL Build List, and Why](#who-is-on-the-dll-build-list-and-why)
+- [Running](#running)
 - [Next](#next)
 - [Technical Reference](#technical-reference)
   - [What You Get](#what-you-get)
@@ -20,7 +21,7 @@ browsers, and keeps them updated.
 
 ## Portable libraries
 
-The default library is [Proxy library](https://gitflic.ru/project/neyrostalker/proksi-biblioteka) (x86/x64), with every optional switch in `App/version.ini` set to `0`. Alternatives are [Chrome++ (DeftKing)](https://github.com/DeftKing/chrome_plus) and [Vivaldi++](https://github.com/ca-x/vivaldi_plus), both supporting x86/x64/ARM64. A failed release lookup or download falls back to a verified archive of the selected library in the project. The generated launcher starts in `App` so relative `Data` and `Cache` paths stay inside the build. Registry cleanup applies only to Chrome++.
+The default library is [Proxy library](https://gitflic.ru/project/neyrostalker/proksi-biblioteka) (x86/x64), with every optional switch in `App/version.ini` set to `0`. Alternatives are [Chrome++ (DeftKing)](https://github.com/DeftKing/chrome_plus) and [Vivaldi++](https://github.com/ca-x/vivaldi_plus), both supporting x86/x64/ARM64. A failed release lookup or download falls back to the archive of the selected library kept from an earlier download (in `Portable\_archives` of the Target folder), verified again. The generated launcher starts in `App` so relative `Data` and `Cache` paths stay inside the build. Registry cleanup applies only to Chrome++.
 
 ## Single-browser tools consolidated
 
@@ -54,7 +55,7 @@ lives in the build folder, next to the browser.
 
 ## Official Downloads
 
-The `Downloads` tab saves original files under `Browser Downloads` in the Target
+The `Downloads` section saves original files under `Browser Downloads` in the Target
 folder: Cent Browser portable SFX (x86/x64), LibreWolf portable ZIP (x64/ARM64),
 Vivaldi installer (x86/x64/ARM64), and the regular DuckDuckGo installer (x64).
 For Vivaldi, manually choose Advanced → Install Standalone in the saved installer.
@@ -90,10 +91,16 @@ One rule decides for the DLL builder: **the vendor has no portable build that up
 The logic is simple: if a browser can update itself, wrapping it means taking on
 work the vendor already does — and doing it worse.
 
+## Running
+
+`Start.exe` opens the window. Every operation can also be run from a console,
+with the same settings, through `browsers_cli.cmd` — see the
+[User Guide](USER_GUIDE_EN.md).
+
 ## Next
 
 * [User Guide](USER_GUIDE_EN.md) — step by step.
-* [Checklist](SMOKE_TEST_RU.md) — what is run before a release (Russian).
+* [Checks](SMOKE_TEST_RU.md) — what is run before a release (Russian).
 * `tools\CHROME_PLUS_AND_DEFENDER.md` — Chrome++ and the antivirus false positive
   during builds (Russian).
 * `tools\DECISIONS_EN.md` — decisions taken.

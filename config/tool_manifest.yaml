@@ -2,7 +2,7 @@ tool:
   id: audion_browsers_portable
   name: "Audion Browsers Portable"
   category: "Browsers"
-  version: "1.4.0"
+  version: "2.0.0"
 
 paths:
   input: "input"
@@ -93,6 +93,9 @@ operations:
     tooltip_ru: "Каждый выбранный браузер скачивается вместе с выбранной библиотекой портативности, распаковывается и публикуется готовой сборкой в папке назначения. В Windows ничего не устанавливается и права администратора не нужны: установщик только распаковывается, а профиль лежит в папке Data рядом с браузером, поэтому всю папку можно скопировать на флешку и унести с собой. Если сборка этого браузера уже лежит в папке назначения, в ней заменяется только браузер - профиль и всё остальное остаются. Если один браузер не вышел, остальные всё равно соберутся, а неудачи перечисляются в конце."
     service: "system_core.services.browsers_portable_service:build_selected"
     kind: "safe"
+    icon: "hammer"
+    block: "New build"
+    block_ru: "Новая сборка"
 
   - id: browsers_update
     title: "Update"
@@ -103,6 +106,9 @@ operations:
     tooltip_ru: "Меняется только сам браузер, прямо внутри сборки, на которую указывает «Источник», - на флешке, в сетевой папке, где угодно. Data и Cache не трогаются, поэтому закладки, пароли и расширения переживают обновление. Сборка, которая уже несёт опубликованную версию, пропускается без скачивания."
     service: "system_core.services.browsers_portable_service:update_selected"
     kind: "safe"
+    icon: "refresh-cw"
+    block: "Browser"
+    block_ru: "Браузер"
 
   - id: browsers_check
     title: "Check"
@@ -113,6 +119,7 @@ operations:
     tooltip_ru: "По каждому выбранному браузеру показывает версию, которую разработчик выложил сегодня, рядом с версией сборки на диске - видно, стоит ли вообще запускать обновление. Читает только страницы выпусков и API версий, ничего не скачивает: проверка стоит нескольких небольших запросов."
     service: "system_core.services.browsers_portable_service:check_updates"
     kind: "safe"
+    icon: "scan-search"
 
 
   - &browsers_library_update
@@ -121,10 +128,13 @@ operations:
     title_ru: "Обновить только DLL"
     description: "Refresh the library in an existing build."
     description_ru: "Обновить библиотеку в готовой сборке."
-    tooltip: "Select browsers and a library, then point Source at a build or its parent. Library files are updated in place; browser files, Data and Cache are kept. The same library keeps the existing INI; switching libraries creates the standard INI. A verified cached library is used if its source is unavailable."
-    tooltip_ru: "Выберите браузеры и библиотеку, а в «Источнике» укажите сборку или папку со сборками. На месте обновляются файлы библиотеки; браузер, Data и Cache сохраняются. Для той же библиотеки остаётся прежний INI; при смене создаётся стандартный. При недоступности источника используется проверенный архив выбранной библиотеки."
+    tooltip: "Select browsers and a library, then point Source at a build or at a folder that holds builds - they are found the way Check and Update find them, at any depth and under any folder name, every build of a ticked browser. Library files are updated in place; browser files, Data and Cache are kept. The same library keeps the existing INI; switching libraries creates the standard INI. A build made elsewhere, whose browser is not in App yet, is left to Update. A verified cached library is used if its source is unavailable."
+    tooltip_ru: "Выберите браузеры и библиотеку, а в «Источнике» укажите сборку или папку со сборками - они находятся так же, как в «Проверить» и «Обновить»: на любой глубине и под любым именем папки, все сборки отмеченного браузера. На месте обновляются файлы библиотеки; браузер, Data и Cache сохраняются. Для той же библиотеки остаётся прежний INI; при смене создаётся стандартный. Сборка, собранная не здесь, где браузер ещё не лежит в App, оставляется для «Обновить». При недоступности источника используется проверенный архив выбранной библиотеки."
     service: "system_core.services.browsers_portable_service:update_libraries_selected"
     kind: "safe"
+    icon: "puzzle"
+    block: "Portability library"
+    block_ru: "Библиотека портативности"
     fields:
       - <<: *browser_selection
       - id: portable_engine
@@ -166,8 +176,8 @@ operations:
         label: "Work around Defender during update"
         label_ru: "Обойти Defender на время обновления"
         default: true
-        tooltip: "Temporarily excludes the workspace and the actual build folder, then removes the exclusion. No action when Defender is inactive."
-        tooltip_ru: "На время замены DLL исключает рабочую папку и саму сборку, затем снимает исключение. При выключенном Defender ничего не делает."
+        tooltip: "Temporarily excludes the Source and Target folders - every place a build can lie in - then removes the exclusion; Windows asks for UAC once for the whole batch. No action when Defender is inactive."
+        tooltip_ru: "На время замены DLL исключает папки источника и назначения - все места, где может лежать сборка, - затем снимает исключение; Windows спрашивает UAC один раз на весь прогон. При выключенном Defender ничего не делает."
       - id: keep_temp
         type: "checkbox"
         section: "advanced"
@@ -186,6 +196,9 @@ operations:
     tooltip_ru: "Скачивает официальный портативный SFX Cent Browser, портативный ZIP LibreWolf, установщик Vivaldi или обычный установщик DuckDuckGo для Windows в Browser Downloads внутри папки назначения. Для Vivaldi откройте сохранённый установщик и выберите Дополнительно -> Установить автономную версию. Содержимое и названия файлов сохраняются."
     service: "system_core.services.ready_portable_service:download_selected"
     kind: "safe"
+    icon: "download"
+    block: "Official files"
+    block_ru: "Официальные файлы"
     fields:
       - id: ready_browsers
         type: "checkboxes"
@@ -225,10 +238,13 @@ operations:
     title_ru: "Добавить в сборку"
     description: "Save certificate files in an existing build."
     description_ru: "Сохранить файлы сертификатов в готовой сборке."
-    tooltip: "Saves the two Russian Trusted CA certificates and install/revoke commands under Certificates in the selected builds. It does not install certificates into Windows or change the browser and profile."
-    tooltip_ru: "Сохраняет два сертификата НУЦ Минцифры и команды установки и отзыва в Certificates выбранных сборок. Сертификаты в Windows не устанавливаются, браузер и профиль не меняются."
+    tooltip: "Saves the two Russian Trusted CA certificates and install/revoke commands under Certificates in the builds of the selected browsers - found in Source at any depth, as Check and Update find them. It does not install certificates into Windows or change the browser and profile."
+    tooltip_ru: "Сохраняет два сертификата НУЦ Минцифры и команды установки и отзыва в Certificates сборок выбранных браузеров - они находятся в «Источнике» на любой глубине, как в «Проверить» и «Обновить». Сертификаты в Windows не устанавливаются, браузер и профиль не меняются."
     service: "system_core.services.browsers_portable_service:stage_certificates_selected"
     kind: "safe"
+    icon: "file-plus"
+    block: "Files in a build"
+    block_ru: "Файлы в сборке"
     fields:
       - <<: *browser_selection
         id: certificate_browsers
@@ -243,6 +259,9 @@ operations:
     tooltip_ru: "Российские госсайты подписаны удостоверяющим центром Минцифры, которому Windows по умолчанию не доверяет, - такой сайт открывается с предупреждением о безопасности. Здесь видно, стоят ли уже оба сертификата у вашей учётной записи: они ищутся по отпечатку. Только читает хранилища сертификатов, ничего не меняет."
     service: "system_core.services.browsers_portable_service:certificates_state"
     kind: "safe"
+    icon: "scan-search"
+    block: "Trust of this computer"
+    block_ru: "Доверие этого компьютера"
 
   - id: certificates_install
     title: "Certificates: install"
@@ -253,6 +272,9 @@ operations:
     tooltip_ru: "Добавляет два сертификата НУЦ Минцифры - корневой и подчинённый - вашей учётной записи Windows, а не всему компьютеру. Права администратора не нужны, другие учётные записи остаются как были. Доверие ставится на учётную запись, а не на отдельный браузер: после этого все браузеры на Chromium - и портативные, и установленные - перестают предупреждать о госсайтах. «Сертификаты: отозвать» возвращает всё назад."
     service: "system_core.services.browsers_portable_service:install_certificates"
     kind: "dangerous"
+    icon: "shield-plus"
+    block: "Trust of this computer"
+    block_ru: "Доверие этого компьютера"
 
   - id: certificates_remove
     title: "Certificates: revoke"
@@ -263,6 +285,9 @@ operations:
     tooltip_ru: "Удаляет ровно те два сертификата, которые ставит эта программа, и больше ничего: они ищутся по отпечатку, зашитому в программу, поэтому чужой сертификат останется на месте. После этого госсайты снова будут предупреждать, а установку можно повторить в любой момент."
     service: "system_core.services.browsers_portable_service:remove_certificates"
     kind: "dangerous"
+    icon: "shield-minus"
+    block: "Trust of this computer"
+    block_ru: "Доверие этого компьютера"
 
   - id: install_7zip
     title: "7-Zip"
@@ -273,6 +298,9 @@ operations:
     tooltip_ru: "Браузер здесь не устанавливается - вместо этого распаковывается его установщик, и делает это 7-Zip. Проверяет `tools\\7zip\\bin\\7za.exe` и, если его нет, кладёт портативную копию в папку проекта. В Windows ничего не устанавливается, а копия удаляется чисткой проекта, потому что быстро устаревает."
     service: "system_core.services.browsers_portable_service:install_portable_7zip"
     kind: "safe"
+    icon: "file-archive"
+    block: "Unpacker"
+    block_ru: "Распаковщик"
 
   - id: defender_exclusion_remove
     title: "Defender: remove exclusion"
@@ -283,11 +311,15 @@ operations:
     tooltip_ru: "Сборка обычно исключает свою папку output из Windows Defender только на время работы и снимает исключение сразу после; обновление исключает ещё и папку input. Это подстраховка на редкий случай, когда прогон убили жёстко и исключение осталось: снимаются ровно исключения output и input. Windows спросит UAC. Больше ничего не читается и никакие другие настройки Defender не трогаются; снять исключение, которого нет, - не ошибка."
     service: "system_core.services.browsers_portable_service:defender_exclusion_remove"
     kind: "dangerous"
+    icon: "shield-x"
+    block: "Windows Defender"
+    block_ru: "Windows Defender"
 
 operation_groups:
   - id: install
     title: "Install"
     title_ru: "Установка"
+    icon: "package-plus"
     description: "A new build, taken from the Target folder."
     description_ru: "Новая сборка, забрать из папки назначения."
     tooltip: "Everything here builds a new portable browser: the installer is unpacked rather than run, so nothing reaches Windows and no administrator rights are needed. The finished folder appears in the Target folder, ready to be copied onto a flash drive or handed over as it is."
@@ -302,6 +334,9 @@ operation_groups:
         tooltip_ru: "Скачивает каждый выбранный браузер вместе с обёрткой и кладёт готовую сборку в папку назначения. Если сборка этого браузера там уже лежит, в ней заменяется только браузер - профиль и всё остальное остаются. Если один браузер не вышел - переехала страница, оборвалась загрузка, - остальные всё равно соберутся, а неудачи перечисляются в конце прогона."
         service: "system_core.services.browsers_portable_service:build_selected"
         kind: "safe"
+        icon: "hammer"
+        block: "New build"
+        block_ru: "Новая сборка"
         fields:
           - <<: *browser_selection
 
@@ -402,6 +437,8 @@ operation_groups:
             label: "Archive format"
             label_ru: "Формат архива"
             default: "zip"
+            obvious: true
+            beside: package_archive
             hint: "ZIP anywhere, 7Z smaller."
             hint_ru: "ZIP везде, 7Z меньше."
             tooltip: "ZIP opens on any Windows computer with no extra program at all, which matters when the build goes to someone else. 7Z packs a browser noticeably smaller - useful for a slow upload - but whoever receives it has to have 7-Zip installed."
@@ -426,13 +463,14 @@ operation_groups:
             default: false
             hint: "For finding out what went wrong."
             hint_ru: "Чтобы разобраться, что пошло не так."
-            tooltip: "Downloads and unpacked installers normally disappear from the workspace folder as soon as the build is published, because they are large. Keep them when a build failed and the reason has to be found: the half-finished result is then still on disk and can be looked at."
-            tooltip_ru: "Загрузки и распакованные установщики обычно исчезают из папки workspace сразу после публикации сборки - они большие. Оставьте их, если сборка не удалась и нужно понять причину: тогда недоделанный результат останется на диске, и его можно будет посмотреть."
+            tooltip: "Unpacked installers normally disappear from the work folder - Portable\\_tmp in the Target folder - as soon as the build is published, because they are large. Keep them when a build failed and the reason has to be found: the half-finished result is then still on disk and can be looked at. The downloaded files themselves are kept in Portable\\_archives either way, one per browser."
+            tooltip_ru: "Распакованные установщики обычно исчезают из рабочей папки - Portable\\_tmp в папке назначения - сразу после публикации сборки: они большие. Оставьте их, если сборка не удалась и нужно понять причину: тогда недоделанный результат останется на диске, и его можно будет посмотреть. Сами скачанные файлы в любом случае лежат в Portable\\_archives, по одному на браузер."
 
 
   - id: browser_downloads
     title: "Downloads"
     title_ru: "Скачивание"
+    icon: "download"
     description: "Download the vendor's original files."
     description_ru: "Скачать оригинальные файлы разработчиков."
     tooltip: "Cent Browser and LibreWolf portable packages, Vivaldi's Standalone installer, and a regular DuckDuckGo installer. Only the original files are downloaded."
@@ -443,6 +481,7 @@ operation_groups:
   - id: update
     title: "Update"
     title_ru: "Обновление"
+    icon: "refresh-cw"
     description: "Update the build in place."
     description_ru: "Обновить сборку на её месте."
     tooltip: "Point Source at the folder with the build - a flash drive, a network share, wherever it lives - and it is updated right there, not copied into the Target folder. Only the browser is replaced; the profile with bookmarks, passwords and extensions stays untouched."
@@ -457,6 +496,7 @@ operation_groups:
         tooltip_ru: "Сравнивает версию, выложенную сегодня, с версией сборки и ничего не скачивает. Смотрит сначала в папку из «Источника», затем в output\\Portable, - сборка, которую носят с собой, проверяется раньше локальных."
         service: "system_core.services.browsers_portable_service:check_updates"
         kind: "safe"
+        icon: "scan-search"
         # Its button stands to the left of Update's and reads that panel's fields.
         beside: browsers_update
         fields:
@@ -491,10 +531,13 @@ operation_groups:
         title_ru: "Обновить"
         description: "Fresh version, your profile untouched."
         description_ru: "Свежая версия, ваш профиль на месте."
-        tooltip: "Replaces the browser inside the build and leaves the profile alone, so bookmarks, passwords and extensions stay. A build that already carries the published version, with a current wrapper, is skipped without downloading anything - use `Rebuild without a new version` when it has to be replaced regardless. A portable browser made elsewhere can be put into Source as it is: it is found by its executable, updated, and brought to this program's layout - App, Data, Cache - with the profile kept. Nothing that lay beside the browser is deleted: your own files stay where they were, and another packer's launchers go into `Old files` inside the build."
-        tooltip_ru: "Меняет в сборке браузер, не трогая профиль: закладки, пароли и расширения остаются. Сборка со свежей версией и актуальной обёрткой пропускается без скачивания - если её всё равно нужно заменить, включите «Пересобрать без новой версии». Портативный браузер, собранный не здесь, можно положить в «Источник» как есть: он находится по исполняемому файлу, обновляется и приводится к виду этой программы - App, Data, Cache, - а профиль сохраняется. Ничего из лежавшего рядом с браузером не удаляется: ваши файлы остаются на месте, а файлы запуска другого упаковщика переносятся в папку `Old files` внутри сборки."
+        tooltip: "Replaces the browser inside the build and leaves the profile alone, so bookmarks, passwords and extensions stay; the settings file of the portability library (INI) stays as you left it too. A build that already carries the published version, with a current wrapper, is skipped without downloading anything - use `Rebuild without a new version` when it has to be replaced regardless. A portable browser made elsewhere can be put into Source as it is: it is found by its executable, updated, and brought to this program's layout - App, Data, Cache - with the profile kept. Nothing that lay beside the browser is deleted: your own files stay where they were, and another packer's launchers go into `Old files` inside the build."
+        tooltip_ru: "Меняет в сборке браузер, не трогая профиль: закладки, пароли и расширения остаются; файл настроек библиотеки портативности (INI) тоже остаётся таким, каким вы его оставили. Сборка со свежей версией и актуальной обёрткой пропускается без скачивания - если её всё равно нужно заменить, включите «Пересобрать без новой версии». Портативный браузер, собранный не здесь, можно положить в «Источник» как есть: он находится по исполняемому файлу, обновляется и приводится к виду этой программы - App, Data, Cache, - а профиль сохраняется. Ничего из лежавшего рядом с браузером не удаляется: ваши файлы остаются на месте, а файлы запуска другого упаковщика переносятся в папку `Old files` внутри сборки."
         service: "system_core.services.browsers_portable_service:update_selected"
         kind: "safe"
+        icon: "refresh-cw"
+        block: "Browser"
+        block_ru: "Браузер"
         fields:
           - <<: *browser_filter
 
@@ -519,8 +562,8 @@ operation_groups:
             default: false
             hint: "Keep them in the build."
             hint_ru: "Оставить их в сборке."
-            tooltip: "Keeps the two certificate files and their install and revoke shortcuts in the updated build. Off removes them from the build instead. Neither choice touches the browser or the profile, and neither changes what this computer already trusts - that is done by the shortcuts, or by the Certificate section."
-            tooltip_ru: "Оставляет в обновлённой сборке два файла сертификатов и ярлыки установки и отзыва. Выключено - убирает их из сборки. Ни то, ни другое не трогает браузер и профиль и не меняет то, чему уже доверяет этот компьютер: этим занимаются ярлыки или раздел «Сертификат»."
+            tooltip: "Keeps the two certificate files and their install and revoke shortcuts in the updated build. Off puts nothing in; files an earlier run put into the build stay there. Neither choice touches the browser or the profile, and neither changes what this computer already trusts - that is done by the shortcuts, or by the Certificate section."
+            tooltip_ru: "Оставляет в обновлённой сборке два файла сертификатов и ярлыки установки и отзыва. Выключено - в сборку ничего не кладётся; файлы, положенные прежним прогоном, остаются. Ни то, ни другое не трогает браузер и профиль и не меняет то, чему уже доверяет этот компьютер: этим занимаются ярлыки или раздел «Сертификат»."
 
           - id: portable_engine
             type: "radio"
@@ -597,8 +640,8 @@ operation_groups:
             default: false
             hint: "Plus an archive in the Target folder."
             hint_ru: "Плюс архив в папке назначения."
-            tooltip: "The updated build is packed into an archive as well and put into the Target folder, ready to hand over. The build itself stays where it was and remains ready to run - the archive is a copy, not a move. The archive is named after the build's folder, so several builds of one browser give an archive each."
-            tooltip_ru: "Обновлённая сборка дополнительно пакуется в архив и кладётся в папку назначения - можно сразу отдавать. Сама сборка остаётся там же, где была, и по-прежнему готова к запуску: архив - это копия, а не перенос. Архив называется по папке сборки, поэтому у нескольких сборок одного браузера у каждой свой архив."
+            tooltip: "The updated build is packed into an archive as well and put into the Target folder, ready to hand over: the browser, its launcher and the certificate files - without the profile and the cache, so no bookmarks, passwords or history leave with it. The build itself stays where it was, profile and all, and remains ready to run. The archive is named after the build's folder, so several builds of one browser give an archive each."
+            tooltip_ru: "Обновлённая сборка дополнительно пакуется в архив и кладётся в папку назначения - можно сразу отдавать: в архиве браузер, файл запуска и файлы сертификатов, без профиля и кэша, так что закладки, пароли и история с ним не уйдут. Сама сборка остаётся там же, где была, вместе с профилем, и по-прежнему готова к запуску. Архив называется по папке сборки, поэтому у нескольких сборок одного браузера у каждой свой архив."
 
           - id: archive_format
             type: "radio"
@@ -606,6 +649,8 @@ operation_groups:
             label: "Archive format"
             label_ru: "Формат архива"
             default: "zip"
+            obvious: true
+            beside: package_archive
             hint: "ZIP anywhere, 7Z smaller."
             hint_ru: "ZIP везде, 7Z меньше."
             tooltip: "ZIP opens on any Windows computer with no extra program at all, which matters when the build goes to someone else. 7Z packs a browser noticeably smaller - useful for a slow upload - but whoever receives it has to have 7-Zip installed."
@@ -630,14 +675,15 @@ operation_groups:
             default: false
             hint: "For finding out what went wrong."
             hint_ru: "Чтобы разобраться, что пошло не так."
-            tooltip: "Downloads and unpacked installers normally disappear from the workspace folder as soon as the build is published, because they are large. Keep them when a build failed and the reason has to be found: the half-finished result is then still on disk and can be looked at."
-            tooltip_ru: "Загрузки и распакованные установщики обычно исчезают из папки workspace сразу после публикации сборки - они большие. Оставьте их, если сборка не удалась и нужно понять причину: тогда недоделанный результат останется на диске, и его можно будет посмотреть."
+            tooltip: "Unpacked installers normally disappear from the work folder - Portable\\_tmp in the Target folder - as soon as the build is published, because they are large. Keep them when a build failed and the reason has to be found: the half-finished result is then still on disk and can be looked at. The downloaded files themselves are kept in Portable\\_archives either way, one per browser."
+            tooltip_ru: "Распакованные установщики обычно исчезают из рабочей папки - Portable\\_tmp в папке назначения - сразу после публикации сборки: они большие. Оставьте их, если сборка не удалась и нужно понять причину: тогда недоделанный результат останется на диске, и его можно будет посмотреть. Сами скачанные файлы в любом случае лежат в Portable\\_archives, по одному на браузер."
 
       - <<: *browsers_library_update
 
   - id: certificates
     title: "Certificate"
     title_ru: "Сертификат"
+    icon: "shield-check"
     description: "Trust for Russian state sites."
     description_ru: "Доверие к российским госсайтам."
     tooltip: "Add to build saves certificate files and install/revoke commands without changing Windows trust. Install adds trust to the current Windows account. Checking and revoking trust remain separate commands."
@@ -652,6 +698,9 @@ operation_groups:
         tooltip_ru: "Ищет ровно два сертификата по отпечатку и показывает, доверяет ли им уже ваша учётная запись. Только читает хранилища и ничего не меняет, поэтому запускать можно в любой момент - в том числе сразу после установки, чтобы убедиться, что она прошла."
         service: "system_core.services.browsers_portable_service:certificates_state"
         kind: "safe"
+        icon: "scan-search"
+        block: "Trust of this computer"
+        block_ru: "Доверие этого компьютера"
 
       - <<: *certificates_stage
 
@@ -664,6 +713,9 @@ operation_groups:
         tooltip_ru: "Добавляет оба сертификата вашей учётной записи в Windows. Это не для отдельного браузера и не для отдельной сборки: после этого им доверяют все браузеры на Chromium в этой учётной записи, включая установленный Chrome. Права администратора не нужны, другие учётные записи не затрагиваются, а команда отзыва ниже всё возвращает."
         service: "system_core.services.browsers_portable_service:install_certificates"
         kind: "dangerous"
+        icon: "shield-plus"
+        block: "Trust of this computer"
+        block_ru: "Доверие этого компьютера"
 
       - id: certificates_remove
         title: "Revoke"
@@ -674,10 +726,14 @@ operation_groups:
         tooltip_ru: "Убирает из вашей учётной записи те два сертификата и больше ничего: отпечатки зафиксированы в программе, поэтому чужой сертификат останется на месте. После этого госсайты снова будут предупреждать, а установку можно повторить в любой момент."
         service: "system_core.services.browsers_portable_service:remove_certificates"
         kind: "dangerous"
+        icon: "shield-minus"
+        block: "Trust of this computer"
+        block_ru: "Доверие этого компьютера"
 
   - id: service_procedures
     title: "Service"
     title_ru: "Обслуживание"
+    icon: "wrench"
     description: "What every build depends on."
     description_ru: "То, от чего зависит любая сборка."
     tooltip: "The unpacking tool; Chrome++ is refreshed with every build and update."
@@ -692,6 +748,9 @@ operation_groups:
         tooltip_ru: "Проверяет `tools\\7zip\\bin\\7za.exe` и, если его нет, кладёт портативную копию в папку проекта. Без него нечем распаковывать установщики браузеров, а значит, ни одна сборка не получится. В Windows ничего не устанавливается, а эта копия удаляется чисткой проекта, потому что быстро устаревает."
         service: "system_core.services.browsers_portable_service:install_portable_7zip"
         kind: "safe"
+        icon: "file-archive"
+        block: "Unpacker"
+        block_ru: "Распаковщик"
 
       - id: defender_exclusion_remove
         title: "Defender: remove exclusion"
@@ -702,6 +761,9 @@ operation_groups:
         tooltip_ru: "Сборка обычно исключает свою папку output из Windows Defender только на время работы и снимает исключение сразу после; обновление исключает ещё и папку input. Это подстраховка на редкий случай, когда прогон убили жёстко и исключение осталось: снимаются ровно исключения output и input. Windows спросит UAC. Больше ничего не читается и никакие другие настройки Defender не трогаются; снять исключение, которого нет, - не ошибка."
         service: "system_core.services.browsers_portable_service:defender_exclusion_remove"
         kind: "dangerous"
+        icon: "shield-x"
+        block: "Windows Defender"
+        block_ru: "Windows Defender"
 
 maintenance_operations:
   - id: cleanup_input_output
@@ -713,13 +775,15 @@ maintenance_operations:
     tooltip_ru: "Удаляет то, что лежит внутри собственных папок программы input и output, сами папки остаются; сначала спрашивает подтверждение. Сборок, которые вы уже скопировали в другое место, это не касается - только рабочих копий здесь."
     service: "system_core.services.sample_service:cleanup_input_output"
     kind: "dangerous"
+    icon: "eraser"
 
   - id: cleanup_workspace
     title: "Clear workspace"
     title_ru: "Очистить workspace"
     description: "Throw away the working leftovers."
     description_ru: "Выбросить рабочие остатки."
-    tooltip: "Deletes downloads and unpacked installers from the workspace folder after confirmation. Finished builds, settings and logs are not touched - this is the leftover working material, which is large and of no use once a build is published."
-    tooltip_ru: "Удаляет из папки workspace загрузки и распакованные установщики, спросив подтверждение. Готовые сборки, настройки и журналы не трогает: это остатки рабочего материала, который занимает много места и не нужен после публикации сборки."
+    tooltip: "Deletes the working material after confirmation: the downloaded installers and what was unpacked from them - Portable\\_archives and Portable\\_tmp in the Target folder - and the workspace folder of the program. Finished builds, settings and logs are not touched - this is what is large and of no use once a build is published; the next build downloads what it needs again."
+    tooltip_ru: "Удаляет рабочий материал, спросив подтверждение: скачанные установщики и распакованное из них - Portable\\_archives и Portable\\_tmp в папке назначения - и папку workspace программы. Готовые сборки, настройки и журналы не трогает: это то, что занимает много места и не нужно после публикации сборки; следующая сборка скачает нужное заново."
     service: "system_core.services.sample_service:cleanup_workspace"
     kind: "dangerous"
+    icon: "brush-cleaning"

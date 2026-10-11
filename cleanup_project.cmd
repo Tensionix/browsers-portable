@@ -41,30 +41,34 @@ echo.
 goto usage_error
 
 :args_done
-call :CheckMarker "%BASE_DIR%\system_core\ui_nicegui\app.py" || goto abort
+rem The door of the program marks its folder: the former window, whose file was
+rem the marker until 2.0.0, is gone.
+call :CheckMarker "%BASE_DIR%\system_core\cli.py" || goto abort
 call :CheckMarker "%BASE_DIR%\config\tool_manifest.yaml" || goto abort
 
 echo ======================================================================
-echo   AUDION PYTHON GUI PORTABLE TEMPLATE - LEAN SOURCE CLEANUP
+echo   AUDION BROWSERS PORTABLE - CLEANUP
 echo ======================================================================
 echo Root:
 echo   %BASE_DIR%
 echo.
-echo This script returns the template to a small source-only / LEAN state.
+echo This script returns the project to a small source-only state.
 echo It keeps source scripts, documentation, permanent configs and release policies.
 echo It removes generated workspace content, build/runtime payloads and caches:
-echo   - input, output, logs, report, workspace, data, release contents
+echo   - input, output, logs, report, workspace, release contents
+echo     (output and input hold builds of browsers WITH THEIR PROFILES - move them away first)
 echo   - runtime, wheelhouse, install\download contents
 echo   - all folders named .runtime, _runtime, ._runtime, __pycache__
 echo   - pytest/mypy/ruff caches, root build/dist folders
-echo   - system_core\fzf.exe and system_core\powershell contents
 echo   - tools\ entirely (7-Zip is rebuilt by the builder; libraries are downloaded)
-echo   - system_core\_pwsh_tmp, system_core\_powershell_tmp, system_core\_fzf_tmp
+echo   - bin and obj under Source\: what building the window and its PowerShell leaves behind
+echo   - config\window.json: the look of the window on this machine
 echo   - Git history is preserved
 echo   - root licenses\ is preserved unchanged
 echo   - generated *.pyc, *.pyo, *.tmp, *.bak, *.log, Thumbs.db, desktop.ini
 echo.
-echo Protected: system_core source, config, docs, launchers, install scripts, licenses.
+echo Protected: system_core source, config, docs, install scripts, licenses.
+echo The built window, App\, stays: it travels in a release as it is.
 if "%DRY_RUN%"=="1" echo Dry-run: ON. Nothing will be deleted.
 echo.
 
@@ -93,6 +97,18 @@ echo.
 echo [CLEAN] Starting project cleanup...
 echo.
 
+rem A sweep by name or pattern walks the whole tree, and so does `attrib /s /d`.
+rem A folder link inside the project - a junction, a symlink: a build in output
+rem whose Data points elsewhere - would lead them to files outside the project.
+rem With any link present the sweeps are skipped and no attributes are changed
+rem down a tree: only the listed folders are cleared, and `rd /s` removes a link
+rem as a link, without going through it.
+set "SWEEP=1"
+for /f "delims=" %%L in ('dir /aL /b /s "%BASE_DIR%" 2^>nul') do (
+  if "!SWEEP!"=="1" echo [SKIP] Folder link found, sweeps by name and pattern are skipped: %%~fL
+  set "SWEEP=0"
+)
+
 call :RemoveNamedDirs ".runtime"
 call :RemoveNamedDirs "_runtime"
 call :RemoveNamedDirs "._runtime"
@@ -106,19 +122,21 @@ call :ClearDir "%BASE_DIR%\output"
 call :ClearDir "%BASE_DIR%\logs"
 call :ClearDir "%BASE_DIR%\report"
 call :ClearDir "%BASE_DIR%\workspace"
-call :ClearDir "%BASE_DIR%\data"
 call :ClearDir "%BASE_DIR%\release"
 call :ClearDir "%BASE_DIR%\runtime"
 call :ClearDir "%BASE_DIR%\wheelhouse"
 call :ClearDir "%BASE_DIR%\install\download"
-call :ClearDir "%BASE_DIR%\system_core\powershell"
-call :RemoveDir "%BASE_DIR%\system_core\_pwsh_tmp"
-call :RemoveDir "%BASE_DIR%\system_core\_powershell_tmp"
-call :RemoveDir "%BASE_DIR%\system_core\_fzf_tmp"
 rem licenses\ is intentionally preserved by release cleanup.
 call :RemoveDir "%BASE_DIR%\build"
 call :RemoveDir "%BASE_DIR%\dist"
-call :RemoveFile "%BASE_DIR%\system_core\fzf.exe"
+rem What building the window leaves behind, and the look of the window on this machine.
+rem App\ is the built window itself: it ships as it is and is not touched here.
+call :RemoveDir "%BASE_DIR%\Source\bin"
+call :RemoveDir "%BASE_DIR%\Source\obj"
+call :RemoveDir "%BASE_DIR%\Source\Ps\bin"
+call :RemoveDir "%BASE_DIR%\Source\Ps\obj"
+call :RemoveFile "%BASE_DIR%\config\window.json"
+call :RemoveFile "%BASE_DIR%\config\window.json.bak"
 call :RemoveDir "%BASE_DIR%\tools"
 
 call :RemoveFilesByPattern "*.pyc"
@@ -197,6 +215,7 @@ exit /b 1
 
 :RemoveNamedDirs
 set "DIR_NAME=%~1"
+if not "%SWEEP%"=="1" exit /b 0
 echo [DIRS] Removing folders named %DIR_NAME%
 for /f "delims=" %%D in ('dir /ad /b /s "%BASE_DIR%" 2^>nul') do (
   if /I "%%~nxD"=="%DIR_NAME%" (
@@ -204,7 +223,7 @@ for /f "delims=" %%D in ('dir /ad /b /s "%BASE_DIR%" 2^>nul') do (
       echo   [DRY] rmdir /s /q "%%~fD"
     ) else (
       echo   rmdir "%%~fD"
-      attrib -r -s -h "%%~fD\*" /s /d >nul 2>nul
+      if "%SWEEP%"=="1" attrib -r -s -h "%%~fD\*" /s /d >nul 2>nul
       rd /s /q "%%~fD" >nul 2>nul
       if exist "%%~fD\" ( echo   [ERROR] Could not remove directory: %%~fD & set /a ERROR_COUNT+=1 )
     )
@@ -217,6 +236,10 @@ set "TARGET_DIR=%~1"
 call :AssertInside "%TARGET_DIR%" || (
   set /a ERROR_COUNT+=1
   exit /b 1
+)
+call :IsLink "%TARGET_DIR%" && (
+  echo [SKIP] Folder link, its target is not cleared: %TARGET_DIR%
+  exit /b 0
 )
 if not exist "%TARGET_DIR%\" (
   if "%DRY_RUN%"=="1" (
@@ -235,7 +258,7 @@ for /f "delims=" %%I in ('dir /a /b "%TARGET_DIR%" 2^>nul') do (
         echo   [DRY] rmdir /s /q "%TARGET_DIR%\%%I"
       ) else (
         echo   rmdir "%TARGET_DIR%\%%I"
-        attrib -r -s -h "%TARGET_DIR%\%%I\*" /s /d >nul 2>nul
+        if "%SWEEP%"=="1" attrib -r -s -h "%TARGET_DIR%\%%I\*" /s /d >nul 2>nul
         rd /s /q "%TARGET_DIR%\%%I" >nul 2>nul
         if exist "%TARGET_DIR%\%%I\" ( echo   [ERROR] Could not remove directory: %TARGET_DIR%\%%I & set /a ERROR_COUNT+=1 )
       )
@@ -264,7 +287,7 @@ if "%DRY_RUN%"=="1" (
   exit /b 0
 )
 echo   rmdir "%TARGET%"
-attrib -r -s -h "%TARGET%\*" /s /d >nul 2>nul
+if "%SWEEP%"=="1" attrib -r -s -h "%TARGET%\*" /s /d >nul 2>nul
 rd /s /q "%TARGET%" >nul 2>nul
 if exist "%TARGET%\" call :MarkError "Could not remove directory: %TARGET%"
 exit /b 0
@@ -288,6 +311,7 @@ exit /b 0
 
 :RemoveFilesByPattern
 set "PATTERN=%~1"
+if not "%SWEEP%"=="1" exit /b 0
 echo [FILES] Removing %PATTERN%
 for /f "delims=" %%F in ('dir /a-d /b /s "%BASE_DIR%\%PATTERN%" 2^>nul') do (
   if "%DRY_RUN%"=="1" (
@@ -312,6 +336,14 @@ if /I "%~1"=="THIRD_PARTY_NOTICES.md" exit /b 0
 if /I "%~1"=="RELEASE_CHECKLIST.md" exit /b 0
 if /I "%~1"=="RELEASE_POLICY.md" exit /b 0
 exit /b 1
+
+:IsLink
+rem Exit code 0 when the path itself is a folder link.
+set "LINK_ATTR="
+for %%A in ("%~1") do set "LINK_ATTR=%%~aA"
+if not defined LINK_ATTR exit /b 1
+if "!LINK_ATTR:l=!"=="!LINK_ATTR!" exit /b 1
+exit /b 0
 
 :AssertInside
 set "TARGET_ABS=%~f1"

@@ -1,0 +1,216 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AudionBrowsersPortable.MainWindow"
+        Title="Audion Browsers Portable"
+        Width="1400" Height="860" MinWidth="1100" MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBg}"
+        Foreground="{DynamicResource TextMain}"
+        FontFamily="{DynamicResource FontUi}"
+        Icon="/Assets/app.ico"
+        FontSize="{DynamicResource FontBase}">
+
+    <!-- Focusable: Ctrl+Enter moves the focus here, so a value being typed is taken before the run. -->
+    <Grid x:Name="Shell" RowDefinitions="Auto,Auto,*,Auto" Margin="10,8,10,6" Focusable="True">
+
+        <!-- The header: the program and its number, what serves the program itself, the language, the look.
+             The sections are not here - they are the row below. -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="2,0,0,8">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <TextBlock Text="AUDION BROWSERS PORTABLE" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
+                <TextBlock x:Name="VersionText" Classes="caption"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- The maintenance of the manifest: operations of the program, not of a section. -->
+                <StackPanel x:Name="TopButtons" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ToggleButton x:Name="LangRu" Classes="switch" Content="RU" Margin="0,0,4,0" VerticalAlignment="Center" ToolTip.Tip="Язык окна: русский."/>
+                <ToggleButton x:Name="LangEn" Classes="switch" Content="EN" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip.Tip="Язык окна: английский."/>
+                <ToggleButton x:Name="ThemeButton" Classes="switch icon" Margin="0" VerticalAlignment="Center" ToolTip.Tip="Тема: Audion Vault Dark (по умолчанию), Audion Dark, Audion Code Dark или Audion Light.">
+                    <Path Classes="icon" Tag="sun"/>
+                    <ToggleButton.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <MenuItem x:Name="ThemeVault" Header="Audion Vault Dark" ToggleType="Radio"/>
+                            <MenuItem x:Name="ThemeDark" Header="Audion Dark" ToggleType="Radio"/>
+                            <MenuItem x:Name="ThemeCode" Header="Audion Code Dark" ToggleType="Radio"/>
+                            <MenuItem x:Name="ThemeLight" Header="Audion Light" ToggleType="Radio"/>
+                        </MenuFlyout>
+                    </ToggleButton.Flyout>
+                </ToggleButton>
+            </StackPanel>
+        </Grid>
+
+        <!-- The sections of the manifest: large buttons across the window, each with its sign and a line of
+             what it is for. A section is always in sight: there is no list of sections to go back to. -->
+        <Grid Grid.Row="1" x:Name="TabRow" Margin="0,0,0,8"/>
+
+        <Grid Grid.Row="2" x:Name="Zones">
+            <!-- The least widths stand on the columns themselves: the splitter keeps to those, and
+                 could otherwise drag the journal over the whole of the forms. -->
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="520"/>
+                <ColumnDefinition Width="9"/>
+                <ColumnDefinition Width="520" MinWidth="460"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: the operations of the section, each a card - with its form when it has fields. -->
+            <Border Grid.Column="0" Classes="frame" MinWidth="520">
+                <Grid RowDefinitions="Auto,*">
+                    <!-- The parts of a section that brings more than one form: one part is in sight at a time. -->
+                    <Grid Grid.Row="0" x:Name="PartRow" Margin="10,8,10,0" IsVisible="False"/>
+                    <ScrollViewer Grid.Row="1" x:Name="CardScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="Cards" Margin="10,8,10,4"/>
+                    </ScrollViewer>
+                    <TextBlock Grid.Row="1" x:Name="CardsNote" Classes="note" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="520" IsVisible="False"/>
+                </Grid>
+            </Border>
+
+            <GridSplitter Grid.Column="1" x:Name="SideSplitter" ResizeDirection="Columns"/>
+
+            <!-- Right: the working folders and the journal. -->
+            <Grid Grid.Column="2" x:Name="Side" RowDefinitions="Auto,*" MinWidth="460">
+
+                <!-- The working folders. What changes a line stands in the line: pick a folder, the history,
+                     the pin, Explorer. Under the lines - what concerns both. -->
+                <Border Grid.Row="0" x:Name="IoFrame" Classes="frame" Padding="9,8,8,4" Margin="0,0,0,8">
+                    <StackPanel>
+                        <Grid ColumnDefinitions="88,*,Auto" Margin="0,0,0,4">
+                            <TextBlock Grid.Column="0" Classes="ioname" Text="ИСТОЧНИК"/>
+                            <TextBox Grid.Column="1" x:Name="SourceBox" Classes="field"
+                                     ToolTip.Tip="Где лежат готовые сборки: папка одной сборки или папка с несколькими. Её читают «Проверить», «Обновить», «Обновить только DLL» и «Добавить в сборку». Путь внутри программы показан от её корня. При старте окна - папка input. Папку можно бросить в окно."/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button x:Name="PickFolderButton" Classes="tool io" ToolTip.Tip="ПАПКА: выбрать папку-источник.">
+                                    <Path Classes="icon" Tag="folder"/>
+                                </Button>
+                                <Border Classes="vsep" Margin="6,0,2,0" VerticalAlignment="Center"/>
+                                <Button x:Name="SourceHistoryButton" Classes="tool io" ToolTip.Tip="Прежние источники: закреплённые сверху.">
+                                    <Path Classes="icon" Tag="history"/>
+                                </Button>
+                                <Button x:Name="SourcePinButton" Classes="tool io" ToolTip.Tip="Закрепить этот путь в списке источников или открепить.">
+                                    <Path Classes="icon" Tag="pin"/>
+                                </Button>
+                                <Button x:Name="SourceOpenButton" Classes="tool io" ToolTip.Tip="Открыть источник в проводнике.">
+                                    <Path Classes="icon" Tag="external-link"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                        <Grid ColumnDefinitions="88,*,Auto" Margin="0,0,0,6">
+                            <TextBlock Grid.Column="0" Classes="ioname" Text="НАЗНАЧЕНИЕ"/>
+                            <TextBox Grid.Column="1" x:Name="TargetBox" Classes="field"
+                                     ToolTip.Tip="Куда кладутся готовые сборки, архивы и скачанные файлы. Путь внутри программы показан от её корня. При старте окна - папка output."/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button x:Name="PickTargetButton" Classes="tool io" ToolTip.Tip="ПАПКА: выбрать папку назначения.">
+                                    <Path Classes="icon" Tag="folder"/>
+                                </Button>
+                                <Border Classes="vsep" Margin="6,0,2,0" VerticalAlignment="Center"/>
+                                <Button x:Name="TargetHistoryButton" Classes="tool io" ToolTip.Tip="Прежние назначения: закреплённые сверху.">
+                                    <Path Classes="icon" Tag="history"/>
+                                </Button>
+                                <Button x:Name="TargetPinButton" Classes="tool io" ToolTip.Tip="Закрепить этот путь в списке назначений или открепить.">
+                                    <Path Classes="icon" Tag="pin"/>
+                                </Button>
+                                <Button x:Name="TargetOpenButton" Classes="tool io" ToolTip.Tip="Открыть назначение в проводнике.">
+                                    <Path Classes="icon" Tag="external-link"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                        <WrapPanel Orientation="Horizontal">
+                            <Button x:Name="ResetPathsButton" Classes="small word" Margin="0,0,4,4" ToolTip.Tip="Вернуть оба пути к папкам input и output программы. Закрепления остаются.">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Path Classes="icon" Tag="rotate-ccw"/>
+                                    <TextBlock Text="СБРОСИТЬ"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ClearFoldersButton" Classes="small word burn" Margin="0,0,4,4" ToolTip.Tip="Удалить содержимое источника или назначения; сами папки остаются. Перед удалением окно спрашивает, называет пути и говорит, уйдёт ли удалённое в Корзину: у флешки и сетевой папки её нет.">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Path Classes="icon" Tag="eraser"/>
+                                    <TextBlock Text="ОЧИСТИТЬ"/>
+                                </StackPanel>
+                            </Button>
+                            <Border Classes="vsep" Margin="4,3,8,0"/>
+                            <Button x:Name="ListFilesButton" Classes="small word" Margin="0,0,4,4" ToolTip.Tip="Назвать в журнале, что лежит в источнике: папки и файлы первого уровня, по алфавиту.">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Path Classes="icon" Tag="list"/>
+                                    <TextBlock Text="СПИСОК"/>
+                                </StackPanel>
+                            </Button>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- The journal: what the operation says, coloured by what a line means. -->
+                <Border Grid.Row="1" x:Name="JournalFrame" Classes="frame" Padding="9,7,8,8">
+                    <Grid RowDefinitions="Auto,*">
+                        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,5">
+                            <TextBlock Grid.Column="0" Classes="panelname" Text="ЖУРНАЛ" Margin="0,0,10,0"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button x:Name="LogsButton" Classes="small word" ToolTip.Tip="Открыть папку logs: журнал каждой операции и журнал окна.">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Path Classes="icon" Tag="file-text"/>
+                                        <TextBlock Text="LOGS"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="ReportsButton" Classes="small word" ToolTip.Tip="Открыть папку report: отчёты операций, по папке на запуск.">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Path Classes="icon" Tag="scroll-text"/>
+                                        <TextBlock Text="REPORT"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="ConfigButton" Classes="small word" ToolTip.Tip="Открыть папку config: манифест и настройки.">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Path Classes="icon" Tag="settings"/>
+                                        <TextBlock Text="CONFIG"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button x:Name="CopyLogButton" Classes="tool io" Margin="0,0,4,0" ToolTip.Tip="Весь журнал окна - в буфер обмена.">
+                                    <Path Classes="icon" Tag="copy"/>
+                                </Button>
+                                <Button x:Name="ClearLogButton" Classes="tool io" Margin="0,0,4,0" ToolTip.Tip="Очистить панель журнала. Файлы журналов в logs остаются.">
+                                    <Path Classes="icon" Tag="trash-2"/>
+                                </Button>
+                                <Button x:Name="WideLogButton" Classes="tool io" Margin="0" ToolTip.Tip="Развернуть журнал на всю правую колонку и вернуть обратно.">
+                                    <Path Classes="icon" Tag="maximize-2"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                        <Border Grid.Row="1" Classes="listbg" CornerRadius="5"/>
+                        <ScrollViewer Grid.Row="1" x:Name="LogScroll" HorizontalScrollBarVisibility="Disabled">
+                            <!-- Pages of text one under another, not one text: a text is laid out whole at every
+                                 line added to it. Only the last page is laid out when lines arrive
+                                 (MainWindow.OnJournal, Controls.LogPage). -->
+                            <StackPanel Margin="8,6" TextElement.FontFamily="{DynamicResource FontGrid}"
+                                        TextElement.FontSize="{DynamicResource FontLog}" TextElement.Foreground="{DynamicResource LogPlain}">
+                                <StackPanel x:Name="LogPages"/>
+                                <!-- The pulse of a long step - a download: one line under the journal, rewritten in
+                                     place while the step goes, with a dot that breathes. It is a state, not a line of
+                                     the journal: the next ordinary line of the operation takes it away. -->
+                                <Grid x:Name="PulseRow" ColumnDefinitions="Auto,*" IsVisible="False">
+                                    <Ellipse x:Name="PulseDot" Classes="pulsedot"/>
+                                    <TextBlock Grid.Column="1" x:Name="PulseText" TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- The status line: the state, the operation, how far it is, its clock, and STOP while it goes. -->
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto" Height="28" Margin="2,6,0,0">
+            <Ellipse Grid.Column="0" x:Name="StateDot" Classes="state" Margin="0,0,7,0"/>
+            <TextBlock Grid.Column="1" x:Name="StateText" Classes="state" Margin="0,0,12,0"/>
+            <TextBlock Grid.Column="2" x:Name="StatusText" Classes="status" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            <TextBlock Grid.Column="3" x:Name="CourseText" Classes="status" VerticalAlignment="Center" Margin="12,0,0,0"/>
+            <ProgressBar Grid.Column="4" x:Name="ProgressBar" Minimum="0" Maximum="100" Width="220" Height="6" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="False"/>
+            <TextBlock Grid.Column="5" x:Name="ClockText" Classes="clock" Margin="12,0,0,0"/>
+            <Button Grid.Column="6" x:Name="StopButton" Classes="warn stop" IsVisible="False"
+                    ToolTip.Tip="Остановить идущую операцию. Она останавливается сама в ближайшей безопасной точке: готовые сборки остаются, исключение Defender снимается.">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Path Classes="icon" Tag="square"/>
+                    <TextBlock Text="СТОП"/>
+                </StackPanel>
+            </Button>
+        </Grid>
+    </Grid>
+</Window>

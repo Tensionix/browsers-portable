@@ -9,19 +9,18 @@
   Removed when present:
     - cached files/folders inside install\download\, except the preserve list
       below;
-    - exact installer staging directories system_core\_pwsh_tmp and
-      system_core\_fzf_tmp;
+    - what building the window leaves behind: bin and obj under Source\ and
+      Source\Ps\ (hundreds of megabytes; the built window in App\ stays);
     - Python __pycache__ directories and *.pyc/*.pyo files outside payload and
       user-data zones.
 
   Preserved:
-    - .gitkeep
     - get-pip.py
     - 7z*-extra.7z
 
-  The script does not touch runtime\, wheelhouse\, system_core\powershell\,
-  system_core\fzf.exe, input/output/logs/report/data/release/workspace, user
-  config, or project business data.
+  The script does not touch runtime\, wheelhouse\, App\, tools\,
+  input/output/logs/report/data/release/workspace, user config, or project
+  business data.
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -145,7 +144,7 @@ function Get-BytecodeCandidates {
     }
 }
 
-$preserveNames = @('.gitkeep', 'get-pip.py')
+$preserveNames = @('get-pip.py')
 $preservePatterns = @('7z*-extra.7z')
 $script:candidates = @()
 $script:removed = @()
@@ -155,7 +154,7 @@ Write-Host '====================================================================
 Write-Host '  AUDION - CLEAN INSTALL CACHE'
 Write-Host '======================================================================'
 Write-Host "Project: $root"
-Write-Host 'Targets: install\download\, installer staging dirs, Python bytecode caches'
+Write-Host 'Targets: install\download\, bin and obj of Source\, Python bytecode caches'
 Write-Host ''
 
 if (Test-Path -LiteralPath $downloadDir) {
@@ -182,14 +181,18 @@ else {
     Write-Host "[skip] $downloadDir does not exist."
 }
 
-$stagingDirs = @(
-    (Join-ProjectPath 'system_core\_pwsh_tmp'),
-    (Join-ProjectPath 'system_core\_fzf_tmp')
+# What a build of the window leaves in Source\: the caches of dotnet and the Debug copy a check
+# of the window runs. App\ is the built window itself and is not among them.
+$buildDirs = @(
+    (Join-ProjectPath 'Source\bin'),
+    (Join-ProjectPath 'Source\obj'),
+    (Join-ProjectPath 'Source\Ps\bin'),
+    (Join-ProjectPath 'Source\Ps\obj')
 )
-foreach ($stagingDir in $stagingDirs) {
-    if (Test-Path -LiteralPath $stagingDir) {
-        $item = Get-Item -LiteralPath $stagingDir -Force
-        Add-Candidate -Item $item -Reason 'Remove installer staging directory'
+foreach ($buildDir in $buildDirs) {
+    if (Test-Path -LiteralPath $buildDir) {
+        $item = Get-Item -LiteralPath $buildDir -Force
+        Add-Candidate -Item $item -Reason 'Remove what building the window left behind'
     }
 }
 
@@ -197,7 +200,8 @@ if (-not $SkipBytecode) {
     $excludedBytecodeRoots = @(
         (Join-ProjectPath 'runtime'),
         (Join-ProjectPath 'wheelhouse'),
-        (Join-ProjectPath 'system_core\powershell'),
+        (Join-ProjectPath 'App'),
+        (Join-ProjectPath 'tools'),
         (Join-ProjectPath 'input'),
         (Join-ProjectPath 'output'),
         (Join-ProjectPath 'logs'),

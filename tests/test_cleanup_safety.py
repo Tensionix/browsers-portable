@@ -16,7 +16,7 @@ import pytest
 from system_core.core.jobs import JobContext
 from system_core.core.manifest import Operation
 from system_core.core.paths import ProjectPaths
-from system_core.services.sample_service import _inventory, cleanup_input_output, cleanup_workspace
+from system_core.services.sample_service import cleanup_input_output, cleanup_workspace
 
 
 def _make_paths(root: Path) -> ProjectPaths:
@@ -55,27 +55,6 @@ def _make_context(paths: ProjectPaths) -> JobContext:
     )
 
 
-def test_inventory_handles_missing_folder(tmp_path: Path) -> None:
-    assert _inventory(tmp_path / "nope") == {"files": 0, "dirs": 0}
-
-
-def test_inventory_counts_correctly(tmp_path: Path) -> None:
-    (tmp_path / "a").mkdir()
-    (tmp_path / "a" / "f1.txt").write_text("x", encoding="utf-8")
-    (tmp_path / "a" / "f2.txt").write_text("y", encoding="utf-8")
-    (tmp_path / "b").mkdir()
-    inv = _inventory(tmp_path)
-    assert inv["files"] == 2
-    assert inv["dirs"] == 2
-
-
-def test_inventory_accepts_single_source_file(tmp_path: Path) -> None:
-    source = tmp_path / "source.txt"
-    source.write_text("x", encoding="utf-8")
-
-    assert _inventory(source) == {"files": 1, "dirs": 0}
-
-
 def test_lean_cleanup_preserves_git_history() -> None:
     script = (Path(__file__).resolve().parents[1] / "cleanup_project.cmd").read_text(encoding="utf-8")
 
@@ -109,6 +88,58 @@ def test_cleanup_input_output_empties_both_folders(tmp_path: Path) -> None:
     assert result["removed_items"] == 4
     assert not any(paths.input.iterdir())
     assert not any(paths.output.iterdir())
+
+
+def _cleanup_with(paths: ProjectPaths, **parameters: str):
+    context = _make_context(paths)
+    context.operation = Operation(id="cleanup_input_output", title="Clear I/O", description="",
+                                  service="system_core.services.sample_service:cleanup_input_output",
+                                  kind="dangerous", parameters=dict(parameters))
+    return cleanup_input_output(context)
+
+
+@pytest.mark.parametrize("aimed_at", [".", "system_core", "config", "input/../system_core", "workspace"])
+@pytest.mark.parametrize("name", ["gui_input_dir", "gui_output_dir"])
+def test_cleanup_input_output_empties_only_the_programs_own_input_and_output(tmp_path: Path, name: str, aimed_at: str) -> None:
+    """Source or Target pointed at the program itself must not turn "Clear I/O" into "erase the program".
+
+    The check used to be "inside the project root", and the root lies inside itself: at the
+    console door `--source .` emptied the project. Nothing is deleted before the refusal - not
+    even the input that would have been cleaned first.
+    """
+    paths = _make_paths(tmp_path)
+    engine = paths.system_core / "cli.py"
+    engine.write_text("the engine", encoding="utf-8")
+    manifest = paths.config / "tool_manifest.yaml"
+    manifest.write_text("tool: {}", encoding="utf-8")
+    build = paths.output / "Portable" / "chrome.exe"
+    build.parent.mkdir()
+    build.write_text("a finished build", encoding="utf-8")
+    source = paths.input / "source.txt"
+    source.write_text("in", encoding="utf-8")
+    leftover = paths.workspace / "installer.exe"
+    leftover.write_text("x", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="Cleanup blocked"):
+        _cleanup_with(paths, **{name: str(tmp_path / aimed_at)})
+
+    assert engine.is_file() and manifest.is_file() and leftover.is_file()
+    # Both folders are judged before either is touched: a wrong Target is not found out after
+    # the right Source is already empty.
+    assert build.is_file() and source.is_file()
+
+
+def test_cleanup_input_output_takes_a_folder_inside_input(tmp_path: Path) -> None:
+    paths = _make_paths(tmp_path)
+    inner = paths.input / "batch"
+    inner.mkdir()
+    (inner / "old.txt").write_text("x", encoding="utf-8")
+    (paths.input / "kept.txt").write_text("beside the batch", encoding="utf-8")
+
+    result = _cleanup_with(paths, gui_input_dir=str(inner))
+
+    assert result["input"]["removed_items"] == 1
+    assert not any(inner.iterdir()) and (paths.input / "kept.txt").is_file()
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="symlink creation requires admin on Windows")
@@ -176,3 +207,34 @@ def test_cleanup_blocks_when_workspace_itself_is_symlink(tmp_path: Path) -> None
         cleanup_workspace(_make_context(paths))
 
     assert (real_workspace_target / "important.txt").exists()
+
+
+def test_cleanup_takes_the_working_material_the_builder_keeps_in_the_target(tmp_path: Path) -> None:
+    """The button promised to delete the downloads and emptied the one folder that never held them."""
+    paths = _make_paths(tmp_path)
+    target = tmp_path / "elsewhere" / "Target"
+    portable = target / "Portable"
+    for name in ("_tmp/chrome_payload/Chrome-bin/chrome.exe", "_archives/ChromeStandaloneSetup64-150.0.1.2.exe",
+                 "Google Chrome Portable/App/chrome.exe", "Google Chrome Portable/Data/Local State"):
+        (portable / name).parent.mkdir(parents=True, exist_ok=True)
+        (portable / name).write_bytes(b"x" * 1024)
+    (target / "Browser Downloads").mkdir()
+    (target / "Browser Downloads" / "Vivaldi.exe").write_bytes(b"a download the person asked for")
+    guard = paths.workspace / ".defender_guard"
+    guard.mkdir()
+    (guard / "pending.json").write_text('["E:\\\\Flash"]', encoding="utf-8")
+    (paths.workspace / "junk.txt").write_text("garbage", encoding="utf-8")
+    context = _make_context(paths)
+    context.operation = Operation(id="cleanup_workspace", title="Clear workspace", description="",
+                                  service="system_core.services.sample_service:cleanup_workspace",
+                                  kind="dangerous", parameters={"gui_output_dir": str(target)})
+
+    result = cleanup_workspace(context)
+
+    assert result["skipped_items"] == [] and result["freed_bytes"] == 2048
+    assert not (portable / "_tmp").exists() and not (portable / "_archives").exists()
+    assert not (paths.workspace / "junk.txt").exists()
+    # A build, a download the person asked for, and the notes of the Defender guard are not working material.
+    assert (portable / "Google Chrome Portable" / "Data" / "Local State").is_file()
+    assert (target / "Browser Downloads" / "Vivaldi.exe").is_file()
+    assert (guard / "pending.json").is_file()

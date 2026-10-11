@@ -265,6 +265,10 @@ def test_cancellation_discards_only_the_incomplete_file(tmp_path, monkeypatch):
     with pytest.raises(service.DownloadCancelled):
         service.download_release(job, release(), folder, 0, 1)
     assert list(folder.iterdir()) == [unrelated]
+    # A stop is not a failure: the runner says so in a line, without a traceback, and the batch
+    # does not take it for a source that failed and go on to the next browser.
+    assert issubclass(service.DownloadCancelled, service.OperationCancelled)
+    assert not issubclass(service.DownloadCancelled, RuntimeError)
 
 
 def test_batch_continues_after_source_failure_and_never_installs(tmp_path, monkeypatch):
@@ -314,3 +318,20 @@ def test_manifest_keeps_downloads_separate_from_dll_builds():
     assert {item["value"] for item in service.browser_options()} == {"cent", "librewolf", "vivaldi", "duckduckgo"}
     duck = next(item for item in service.browser_options() if item["value"] == "duckduckgo")
     assert "установщик" in duck["label_ru"]
+
+
+def test_the_draft_of_a_download_that_was_ended_hard_does_not_stay_for_good(tmp_path, monkeypatch):
+    """Its name is random, so no later run wrote over it: it lay beside the downloads until somebody deleted it."""
+    job = context(tmp_path)
+    item = release("cent")
+    folder = tmp_path / "downloads"
+    folder.mkdir()
+    stale = folder / (item.filename + ".a1b2c3d4.part")
+    stale.write_bytes(b"half of it")
+    theirs = folder / "notes.part"
+    theirs.write_bytes(b"somebody's own")
+    monkeypatch.setattr(service, "urlopen", lambda request, **_kwargs: Response(executable()))
+
+    service.download_release(job, item, folder, 0, 1)
+
+    assert sorted(path.name for path in folder.iterdir()) == sorted([item.filename, "notes.part"])

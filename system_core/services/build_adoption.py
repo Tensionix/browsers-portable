@@ -62,7 +62,32 @@ WRAPPER_FILES = frozenset({"version.dll", "chrome++.ini", "version.ini", "config
 # by a failed run holds a browser, and must not be taken for a build.
 WORK_PREFIXES = ("app.incoming-", "app.replaced-", "app.adopting-", "data.adopting-")
 
-_VERSION_DIRECTORY = re.compile(r"\d+(\.\d+){2,}")
+# Folders the program keeps beside the builds it publishes: what it downloaded and what it is
+# working on. With the Source pointed at `<Target>\Portable` an unpacked installer left in
+# `_tmp` - a run that was ended, or "keep the working files" - was found as a browser somebody
+# brought, listed by Check and "updated" inside the work folder.
+SERVICE_FOLDERS = frozenset({"_tmp", "_archives"})
+
+_VERSION_DIRECTORY = re.compile(r"\d+(\.\d+){3}")
+
+# What a Chromium browser keeps in the folder named after its version.
+_VERSION_CONTENT = frozenset({".dll", ".pak", ".dat", ".bin", ".manifest"})
+
+
+def is_version_directory(path: Path) -> bool:
+    """The folder a Chromium browser keeps its files in, named after its version.
+
+    Four numbers, and files of a browser inside. The name alone is not proof: a person keeps
+    `10.10.2026\\` or `2025.03.01\\` beside the browser - a backup of bookmarks, by its date - and
+    while three numbers were enough such a folder was taken for the browser's, moved into `App`
+    and deleted with the old browser at the next swap.
+    """
+    if not _VERSION_DIRECTORY.fullmatch(path.name):
+        return False
+    try:
+        return any(item.suffix.lower() in _VERSION_CONTENT and item.is_file() for item in path.iterdir())
+    except OSError:
+        return False
 
 
 def _is_work_folder(name: str) -> bool:
@@ -118,13 +143,14 @@ def _walk(root: Path, max_depth: int, skip: Path | None = None) -> Iterator[Path
                 if skip is not None and same_path(child, skip):
                     continue
                 lowered = child.name.lower()
-                if lowered in TEMPLATE_NAMES or lowered == ASIDE_NAME.lower() or _is_work_folder(lowered):
+                if (lowered in TEMPLATE_NAMES or lowered in SERVICE_FOLDERS or lowered == ASIDE_NAME.lower()
+                        or _is_work_folder(lowered)):
                     continue
                 yield child
                 if (
                     looks_like_profile(child)
                     or child.name.lower() == "cache"
-                    or _VERSION_DIRECTORY.fullmatch(child.name)
+                    or is_version_directory(child)
                 ):
                     continue
                 following.append(child)
@@ -311,7 +337,7 @@ def is_browser_item(item: Path, names: frozenset[str]) -> bool:
     name = item.name.casefold()
     if name in names or name in WRAPPER_FILES:
         return True
-    return bool(_VERSION_DIRECTORY.fullmatch(item.name)) and item.is_dir()
+    return item.is_dir() and is_version_directory(item)
 
 
 def _has_files(folder: Path) -> bool:
@@ -387,20 +413,32 @@ def normalize(layout: Layout, log: Log, remove_tree: Callable[[Path], None], bro
         shown = os.path.relpath(profile, home)
         parked = home / f"Data.adopting-{stamp}"
         profile.rename(parked)
-        if data.exists():
-            # What is left of a foreign `Data` once the profile is out of it.
-            # Anything that still looks like a profile is kept beside the build;
-            # launcher settings, or somebody's files, go into `Old files`. Only
-            # empty folders are removed.
-            if looks_like_profile(data) or find_profile(data) is not None:
-                aside = home / f"Data.foreign-{stamp}"
-                data.rename(aside)
-                log(f"[ADOPT] another profile was left in place as {aside.name}")
-            elif _has_files(data):
-                kept.append(_set_aside(home, data))
-            else:
-                remove_tree(data)
-        parked.rename(data)
+        try:
+            if data.exists():
+                # What is left of a foreign `Data` once the profile is out of it.
+                # Anything that still looks like a profile is kept beside the build;
+                # launcher settings, or somebody's files, go into `Old files`. Only
+                # empty folders are removed.
+                if looks_like_profile(data) or find_profile(data) is not None:
+                    aside = home / f"Data.foreign-{stamp}"
+                    data.rename(aside)
+                    log(f"[ADOPT] another profile was left in place as {aside.name}")
+                elif _has_files(data):
+                    kept.append(_set_aside(home, data))
+                else:
+                    remove_tree(data)
+            parked.rename(data)
+        except OSError:
+            # The profile must not stay under the name of a work folder: every later search
+            # passes such a folder by, and the build would be found without its profile. It
+            # goes back where it was, or - when that place is gone - becomes `Data` after all.
+            for back in (profile, data):
+                try:
+                    if parked.exists() and not back.exists() and back.parent.is_dir():
+                        parked.rename(back)
+                except OSError:
+                    continue
+            raise
         log(f"[ADOPT] profile: {shown} -> Data")
     elif profile is not None:
         _rename_case(profile, "Data")
@@ -414,11 +452,27 @@ def normalize(layout: Layout, log: Log, remove_tree: Callable[[Path], None], bro
         # what is certainly the browser goes into App; the rest stays where it is.
         staging = home / f"App.adopting-{stamp}"
         staging.mkdir()
-        for item in list(home.iterdir()):
-            if same_path(item, staging) or item.name.lower() in {"app", "data", "cache"}:
-                continue
-            if is_browser_item(item, names):
-                item.rename(staging / item.name)
+        moved: list[Path] = []
+        try:
+            for item in list(home.iterdir()):
+                if same_path(item, staging) or item.name.lower() in {"app", "data", "cache"}:
+                    continue
+                if is_browser_item(item, names):
+                    item.rename(staging / item.name)
+                    moved.append(item)
+        except OSError:
+            # A file of the browser is held - it was started a moment ago. Half a browser in a
+            # work folder is a build no later search finds: what was moved goes back.
+            for item in reversed(moved):
+                try:
+                    (staging / item.name).rename(item)
+                except OSError:
+                    continue
+            try:
+                staging.rmdir()
+            except OSError:
+                pass
+            raise
         _clear_the_way_for_app(home, log)
         staging.rename(app)
         log("[ADOPT] browser: its files in the build folder -> App")

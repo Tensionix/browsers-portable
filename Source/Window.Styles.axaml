@@ -1,0 +1,476 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- What the window of Audion Browsers Portable adds to the shell of App.axaml.
+         Heights are multiples of 4: at the owner's 125% they come out as whole pixels.
+         No colour is written here: every one is a resource of the shell and changes with the
+         theme. The one exception is named below and is the owner's own word. -->
+    <Styles.Resources>
+        <!-- The type on a button filled with the accent: white in every theme ("wholly filled
+             with the accent colour, white type"). The shell has no such ink: its text colours
+             turn dark in the light theme. -->
+        <SolidColorBrush x:Key="OnAccent" Color="#ffffff"/>
+    </Styles.Resources>
+
+    <!-- The rims of buttons and chips, pressed down by 70% (ButtonTints.cs; the owner,
+         10.10.2026: a window full of rims flickers). A rim that is the button's own colour is pressed down in
+         the resources of the button itself. The three below are the rims the shell paints with
+         the accent, which it also writes text in: a button under the pointer, a switch under the
+         pointer, a switch that is on. They stand first in this file - the styles of this window
+         for a kind of button of its own come after them and have the last word; and they come
+         after the shell, so they also take the rim of a switch the shell paints its own way
+         ("pick", "burn", "amber", "pinned" - none of which this window uses). -->
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="BorderBrush" Value="{DynamicResource RimAccent}"/>
+    </Style>
+    <Style Selector="ToggleButton.switch:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="BorderBrush" Value="{DynamicResource RimAccent}"/>
+    </Style>
+    <Style Selector="ToggleButton.switch:checked /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.switch:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="BorderBrush" Value="{DynamicResource RimAccent}"/>
+    </Style>
+    <!-- A button that is off is at rest. The shell paints it on the presenter with the key of the
+         fill at rest - the very key the presenter carries the fill "under the pointer" by, so a
+         button that could not be pressed looked as if the pointer stood over it. RestFill is the
+         fill at rest under a name no presenter carries (ButtonTints.cs). -->
+    <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource RestFill}"/>
+    </Style>
+
+    <!-- A section of the manifest: a large button of the row under the header - its sign and its
+         name, and under them a line of what the section is for. The sections share the width of
+         the window equally. 52 is a whole 65 pixels at the owner's 125%. -->
+    <Style Selector="ToggleButton.switch.bigtab">
+        <Setter Property="Height" Value="52"/>
+        <Setter Property="MinHeight" Value="52"/>
+        <Setter Property="Padding" Value="5,0"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+    <!-- The name on a large button, and the quiet line under it. -->
+    <Style Selector="TextBlock.bigname">
+        <Setter Property="FontSize" Value="{DynamicResource FontPanel}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.bigabout">
+        <Setter Property="FontSize" Value="{DynamicResource FontButton}"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        <Setter Property="Margin" Value="0,3,0,0"/>
+    </Style>
+    <Style Selector="ToggleButton.switch.bigtab:checked TextBlock.bigname">
+        <Setter Property="Foreground" Value="{DynamicResource TextMain}"/>
+    </Style>
+
+    <!-- A part of a section - "Browser | Portability library" in Update: a row of switches of
+         equal width over the cards, one on. Smaller than a section, larger than a field's switch. -->
+    <Style Selector="ToggleButton.switch.part">
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="MinHeight" Value="32"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+    <Style Selector="ToggleButton.switch.part:checked TextBlock.bigname">
+        <Setter Property="Foreground" Value="{DynamicResource TextMain}"/>
+    </Style>
+
+    <!-- A logical block of a section: a card with its name, the buttons of its operations and,
+         when an operation has fields, its form. -->
+    <Style Selector="Border.opcard">
+        <Setter Property="Background" Value="{DynamicResource ListBg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSoft}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <!-- Little at the bottom: the last block of a form, or the last row of buttons, brings
+             its own distance, and the two together pushed the last block of Update out of sight. -->
+        <Setter Property="Padding" Value="12,8,10,4"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+    </Style>
+    <!-- Nothing stands under the last card: it keeps no distance below itself. -->
+    <Style Selector="StackPanel#Cards > Border.opcard:nth-last-child(1)">
+        <Setter Property="Margin" Value="0"/>
+    </Style>
+    <!-- The name of a card: a size up from the name of a block of fields inside it. -->
+    <Style Selector="TextBlock.grp.cardname">
+        <Setter Property="FontSize" Value="{DynamicResource FontButton}"/>
+        <Setter Property="Foreground" Value="{DynamicResource SeaInk}"/>
+        <Setter Property="Margin" Value="1,0,0,10"/>
+    </Style>
+    <!-- The button that runs an operation: its sign and name, under them what it does. As tall
+         as a section's button; several of a card stand in a row. -->
+    <Style Selector="Button.go">
+        <Setter Property="Height" Value="52"/>
+        <Setter Property="MinHeight" Value="52"/>
+        <Setter Property="MinWidth" Value="232"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="Margin" Value="0,0,6,0"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="VerticalAlignment" Value="Top"/>
+    </Style>
+    <Style Selector="Button.go.run TextBlock.bigname">
+        <Setter Property="Foreground" Value="{DynamicResource Run}"/>
+    </Style>
+    <Style Selector="Button.go.warn TextBlock.bigname">
+        <Setter Property="Foreground" Value="{DynamicResource BurnInk}"/>
+    </Style>
+    <!-- A card that holds buttons alone: a second row of them keeps its distance from the first. -->
+    <Style Selector="WrapPanel > Button.go">
+        <Setter Property="Margin" Value="0,0,6,4"/>
+    </Style>
+
+    <!-- The button that runs the operation of a form: at the right end of the head of its card,
+         of an ordinary height, filled with the accent, its name in white - no sign, no line
+         under the name; what it does is in the tooltip (the owner, 10.10.2026: such buttons
+         "should not be made huge, with descriptions, and on the left at that. They are to stand
+         on the right, wholly filled with the accent colour, white type, no icon, no description.
+         All of the description in the tooltip" - with a pair of Google's buttons for a sample).
+         32 is a whole 40 pixels at the owner's 125%. -->
+    <Style Selector="Button.act">
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="MinHeight" Value="32"/>
+        <Setter Property="Padding" Value="18,0"/>
+        <Setter Property="Margin" Value="6,0,0,0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontPanel}"/>
+        <!-- ActFill is the accent of the theme darkened until white type reads on it; the window
+             makes it of the theme's own brush at every change of theme (TintRunButtons). In the
+             dark themes the accent itself, bright enough for a rim, glared as a whole button
+             (the owner: "darken the accents of the run buttons in the dark theme"). -->
+        <Setter Property="Background" Value="{DynamicResource ActFill}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ActFill}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.act:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource ActFill}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Quasar}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
+    </Style>
+    <!-- A dangerous one - it changes Windows - is filled with Burn Orange, darkened the same way. -->
+    <Style Selector="Button.act.actburn">
+        <Setter Property="Background" Value="{DynamicResource ActBurnFill}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ActBurnFill}"/>
+    </Style>
+    <Style Selector="Button.act.actburn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource ActBurnFill}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BurnInk}"/>
+    </Style>
+    <!-- The head of a card with a form: the name of its block on the left, level with the buttons. -->
+    <Style Selector="TextBlock.grp.cardname.inhead">
+        <Setter Property="Margin" Value="1,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- A block of fields inside a card: its frame is the shell's "grp". Air between the name of
+         the block and its first control, and between one control and the next (the owner,
+         10.10.2026: "too little air vertically between the names of the blocks and the controls,
+         and between the rows of controls"). -->
+    <Style Selector="Border.grp.fblock">
+        <Setter Property="Padding" Value="10,8,10,2"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+    </Style>
+    <Style Selector="Border.grp.fblock TextBlock.grp">
+        <Setter Property="Margin" Value="1,0,0,10"/>
+    </Style>
+    <!-- The name of a block on the line of its first field: the name, a rule, then the name of
+         the field and what it is for. A line of its own for the name of a block cost every
+         block a row of the form. -->
+    <Style Selector="Border.grp.fblock TextBlock.grp.inhead">
+        <Setter Property="Margin" Value="1,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.fsep">
+        <Setter Property="Width" Value="1"/>
+        <Setter Property="Height" Value="11"/>
+        <Setter Property="Margin" Value="8,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource BorderSoft}"/>
+    </Style>
+    <!-- One field of a block: the mark of a changed value in the gutter, then the field. -->
+    <Style Selector="Grid.fcell">
+        <Setter Property="Margin" Value="0,0,0,10"/>
+    </Style>
+    <!-- The few words of the manifest that say what a field is for. A point smaller than the
+         name they stand beside or under: of one size, the two read as one text. -->
+    <Style Selector="TextBlock.fnote">
+        <Setter Property="FontSize" Value="9"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Margin" Value="0,1,0,2"/>
+    </Style>
+    <!-- The same words on the line of the field's name: one line, cut at the edge of the block. -->
+    <Style Selector="TextBlock.fnote.inline">
+        <Setter Property="TextWrapping" Value="NoWrap"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="0"/>
+    </Style>
+    <!-- A flag as a card: the tick box, the name and, under the name, what the flag is for. As
+         wide as its block. -->
+    <Style Selector="ToggleButton.switch.flagcard">
+        <Setter Property="Height" Value="NaN"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Padding" Value="9,5,9,6"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <!-- The words get the whole width of the card, not just the width they asked for: given
+             exactly that, the grid inside rounded its columns and the longer line lost a pixel
+             and, with it, its last word. -->
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <!-- Neither line of a flag wraps: the card is as wide as its block, and a line that does not
+         fit is cut with an ellipsis - the tooltip has it whole. A wrapping line measured as one
+         row and laid out a rounded pixel narrower lost its last word without a trace ("Плюс
+         архив в папке" for "…в папке назначения.", seen at 150%). -->
+    <Style Selector="TextBlock.flagname">
+        <Setter Property="FontSize" Value="{DynamicResource FontSwitch}"/>
+        <Setter Property="TextWrapping" Value="NoWrap"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+    <Style Selector="TextBlock.flagnote">
+        <Setter Property="FontSize" Value="9"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+        <Setter Property="TextWrapping" Value="NoWrap"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        <Setter Property="Margin" Value="0,3,0,0"/>
+    </Style>
+    <!-- A flag that is on: its ground says so; the rim is a quiet one - on a card as wide as its
+         block the bright rim of a small switch shouts. -->
+    <Style Selector="ToggleButton.switch.flagcard:checked /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.switch.flagcard:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="BorderBrush" Value="{DynamicResource RimFocus}"/>
+    </Style>
+    <!-- One of a group of flags - a browser: a button with its mark, taller than a plain switch.
+         Not "pick": the shell keeps that name for a choice that turns amber when it is on. -->
+    <Style Selector="ToggleButton.switch.logo">
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="MinHeight" Value="32"/>
+        <Setter Property="Padding" Value="11,0"/>
+        <Setter Property="Margin" Value="0,0,5,4"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontPanel}"/>
+    </Style>
+    <!-- An option with a colour of its own - the logo of a browser. The colour is data (the
+         registry of the engine names it) and comes as resources of the button itself: BrandInk,
+         BrandRim, BrandWash (Views\Form.cs, Paint). Off - the rim in that colour; on - a wash of
+         it under the name. -->
+    <Style Selector="ToggleButton.switch.brand /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="BorderBrush" Value="{DynamicResource BrandRim}"/>
+    </Style>
+    <Style Selector="ToggleButton.switch.brand:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="BorderBrush" Value="{DynamicResource BrandInk}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMain}"/>
+    </Style>
+    <Style Selector="ToggleButton.switch.brand:checked /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.switch.brand:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrandWash}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrandInk}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMain}"/>
+    </Style>
+    <!-- "Advanced": the name and a rule across the form; the rarely needed fields stand under
+         it, in sight. It folds nothing - the owner had the fold removed and the name with the
+         rule kept. -->
+    <Style Selector="Grid.fpart">
+        <Setter Property="Height" Value="20"/>
+        <Setter Property="Margin" Value="2,0,0,4"/>
+    </Style>
+    <Style Selector="TextBlock.grouptitle">
+        <Setter Property="FontSize" Value="{DynamicResource FontButton}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource SeaInk}"/>
+    </Style>
+    <Style Selector="Border.frule">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Margin" Value="10,1,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource SepInk}"/>
+    </Style>
+    <!-- A field on the line of another (the manifest's `beside`): its switches without the gap
+         a row of switches leaves under itself, so they stand level with the flag beside them. -->
+    <Style Selector="StackPanel.fguest ToggleButton.switch">
+        <Setter Property="Margin" Value="5,0,0,0"/>
+    </Style>
+
+    <!-- The name of a field over or beside its control. -->
+    <Style Selector="TextBlock.flabel">
+        <Setter Property="FontSize" Value="{DynamicResource FontSwitch}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="0,0,7,0"/>
+    </Style>
+    <!-- A value typed in: a link, a number, a path. -->
+    <Style Selector="TextBox.field">
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="Padding" Value="7,0"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <!-- The size of the words on the buttons around it: a path a size larger looked huge beside them. -->
+        <Setter Property="FontSize" Value="{DynamicResource FontSwitch}"/>
+        <Setter Property="Background" Value="{DynamicResource InputBg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSoft}"/>
+        <Setter Property="CornerRadius" Value="5"/>
+    </Style>
+    <Style Selector="TextBox.field.number">
+        <Setter Property="Width" Value="62"/>
+        <Setter Property="HorizontalContentAlignment" Value="Right"/>
+    </Style>
+    <!-- A value that is not the default of the manifest is marked: before a run it is seen at a
+         glance what was changed. -->
+    <Style Selector="Ellipse.changed">
+        <Setter Property="Width" Value="5"/>
+        <Setter Property="Height" Value="5"/>
+        <Setter Property="Fill" Value="{DynamicResource Tangerine}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="0,0,5,0"/>
+    </Style>
+    <!-- The same mark on the line of a field's name, between the rule and the name. -->
+    <Style Selector="Ellipse.changed.inhead">
+        <Setter Property="Margin" Value="3,0,3,0"/>
+    </Style>
+
+    <!-- The working folders: the name of a line. -->
+    <Style Selector="TextBlock.ioname">
+        <Setter Property="FontSize" Value="{DynamicResource FontButton}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.tool.io">
+        <Setter Property="Margin" Value="4,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <!-- A button with a sign and a word: the row under the working folders, the folders beside the
+         journal, the maintenance at the top. -->
+    <Style Selector="Button.small.word">
+        <Setter Property="Margin" Value="0,0,4,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <!-- Deleting is Burn Orange, never red. -->
+    <Style Selector="Button.small.burn">
+        <Setter Property="BorderBrush" Value="{DynamicResource WarnBorder}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BurnInk}"/>
+    </Style>
+    <Style Selector="Button.small.burn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource BurnInk}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource RimBurn}"/>
+    </Style>
+    <Style Selector="Button.small.burn Path.icon">
+        <Setter Property="Stroke" Value="{DynamicResource BurnInk}"/>
+    </Style>
+
+    <!-- The pulse of a long step, under the journal: the dot before its line. While the step goes
+         the dot breathes - the class "live" is on only then, so nothing ticks unseen. -->
+    <Style Selector="Ellipse.pulsedot">
+        <Setter Property="Width" Value="6"/>
+        <Setter Property="Height" Value="6"/>
+        <Setter Property="Margin" Value="0,0,7,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Fill" Value="{DynamicResource Quasar}"/>
+    </Style>
+    <Style Selector="Ellipse.pulsedot.live">
+        <Style.Animations>
+            <Animation Duration="0:0:0.9" IterationCount="INFINITE" PlaybackDirection="Alternate" Easing="SineEaseInOut">
+                <KeyFrame Cue="0%">
+                    <Setter Property="Opacity" Value="1"/>
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                    <Setter Property="Opacity" Value="0.2"/>
+                </KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
+
+    <!-- The head of a panel of the right column. -->
+    <Style Selector="TextBlock.panelname">
+        <Setter Property="FontSize" Value="{DynamicResource FontButton}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- The status line: the dot and the word of the state. -->
+    <Style Selector="Ellipse.state">
+        <Setter Property="Width" Value="8"/>
+        <Setter Property="Height" Value="8"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Fill" Value="{DynamicResource DotIdle}"/>
+    </Style>
+    <Style Selector="Ellipse.state.run"><Setter Property="Fill" Value="{DynamicResource Quasar}"/></Style>
+    <Style Selector="Ellipse.state.done"><Setter Property="Fill" Value="{DynamicResource DotOk}"/></Style>
+    <!-- Ended, but some of the browsers it was given failed. -->
+    <Style Selector="Ellipse.state.partial"><Setter Property="Fill" Value="{DynamicResource DotWarn}"/></Style>
+    <Style Selector="Ellipse.state.failed"><Setter Property="Fill" Value="{DynamicResource DotBad}"/></Style>
+    <Style Selector="Ellipse.state.stopped"><Setter Property="Fill" Value="{DynamicResource MarkInk}"/></Style>
+    <Style Selector="TextBlock.state">
+        <Setter Property="FontSize" Value="{DynamicResource FontCaption}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.state.run"><Setter Property="Foreground" Value="{DynamicResource Quasar}"/></Style>
+    <Style Selector="TextBlock.state.done"><Setter Property="Foreground" Value="{DynamicResource Run}"/></Style>
+    <Style Selector="TextBlock.state.partial"><Setter Property="Foreground" Value="{DynamicResource AmberInk}"/></Style>
+    <Style Selector="TextBlock.state.failed"><Setter Property="Foreground" Value="{DynamicResource BurnInk}"/></Style>
+    <Style Selector="TextBlock.state.stopped"><Setter Property="Foreground" Value="{DynamicResource MarkInk}"/></Style>
+    <!-- A short word of the window in the status line: a refusal is amber for a few seconds. -->
+    <Style Selector="TextBlock.status.refused">
+        <Setter Property="Foreground" Value="{DynamicResource AmberInk}"/>
+    </Style>
+    <Style Selector="TextBlock.clock">
+        <Setter Property="FontFamily" Value="{DynamicResource FontGrid}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontCaption}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <!-- STOP in the status line: as tall as the line. -->
+    <Style Selector="Button.stop">
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="Margin" Value="10,0,0,0"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSwitch}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- The pin of a path that is pinned: amber, as every pin of the Audion programs. -->
+    <Style Selector="Button.tool.io.on">
+        <Setter Property="Background" Value="{DynamicResource PinBg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource PinBorder}"/>
+    </Style>
+    <Style Selector="Button.tool.io.on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource PinBg}"/>
+    </Style>
+    <Style Selector="Button.tool.io.on Path.icon, Path.icon.amber">
+        <Setter Property="Stroke" Value="{DynamicResource AmberInk}"/>
+    </Style>
+
+    <!-- A line of the list that opens under a button: a path of the history. -->
+    <Style Selector="Button.histrow">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontPanel}"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    </Style>
+    <Style Selector="Button.histrow:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource RowHover}"/>
+    </Style>
+    <Style Selector="Button.histrow.current /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource RowPickedIdle}"/>
+    </Style>
+    <Style Selector="Button.histrow.gone">
+        <Setter Property="Foreground" Value="{DynamicResource CrumbInk}"/>
+    </Style>
+</Styles>

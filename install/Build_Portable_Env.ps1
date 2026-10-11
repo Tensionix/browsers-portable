@@ -7,10 +7,9 @@ $runtimeDir = Join-Path $rootDir "runtime"
 $wheelhouseDir = Join-Path $rootDir "wheelhouse"
 $requirementsFile = Join-Path $installDir "requirements_full.in"
 $doctorScript = Join-Path $rootDir "system_core\doctor.py"
-$guiSmokeScript = Join-Path $rootDir "system_core\ui_nicegui\app.py"
 
 $pythonMinor = 12
-$headers = @{ 'User-Agent' = 'Audion-Python-Portable-Template' }
+$headers = @{ 'User-Agent' = 'Audion-Portable-Installer' }
 
 $pyPatch = -1
 for ($i = 0; $i -le 40; $i++) {
@@ -46,13 +45,14 @@ function Invoke-Checked {
 }
 
 Write-Host "======================================================================"
-Write-Host "AUDION PYTHON PORTABLE TEMPLATE - BUILD PORTABLE ENV (PS)"
+Write-Host "AUDION BROWSERS PORTABLE - BUILD PORTABLE ENV (PS)"
 Write-Host "======================================================================"
 Write-Host "Root:        $rootDir"
 Write-Host "Install:     $installDir"
 Write-Host "Download:    $downloadDir"
 Write-Host "Runtime:     $runtimeDir"
 Write-Host "Wheelhouse:  $wheelhouseDir"
+Write-Host "PowerShell:  $($PSVersionTable.PSVersion) at $PSHOME"
 Write-Host ""
 
 New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
@@ -66,7 +66,14 @@ Write-Host "[2/6] Extracting runtime..."
 if (Test-Path $runtimeDir) {
     Get-ChildItem -Force $runtimeDir | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 }
-Expand-Archive -Path $pythonZipPath -DestinationPath $runtimeDir -Force
+# Not Expand-Archive: the PowerShell the program carries has no Archive module, and the
+# cmdlet of the machine would bring Windows PowerShell in through a compatibility session.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+if ($PSVersionTable.PSVersion.Major -ge 6) {
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($pythonZipPath, $runtimeDir, $true)
+} else {
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($pythonZipPath, $runtimeDir)
+}
 
 Write-Host "[3/6] Enabling import site..."
 $pthFile = Join-Path $runtimeDir "python3$pythonMinor._pth"
@@ -118,9 +125,6 @@ Invoke-Checked -Label "Installing packages" -Command {
 
 Write-Host "[verify] Verifying environment..."
 Invoke-Checked -Label "Verifying environment" -Command { & $pythonExe $doctorScript --project-root $rootDir }
-if (Test-Path $guiSmokeScript) {
-    Invoke-Checked -Label "Verifying NiceGUI smoke" -Command { & $pythonExe $guiSmokeScript --smoke }
-}
 
 Write-Host ""
 Write-Host "[SUCCESS] Portable environment is ready."

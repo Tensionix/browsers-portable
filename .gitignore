@@ -218,3 +218,29 @@ config/rclone/
 # Generated documents: rebuilt by Audion Build PDF Render, shipped in archives.
 Docs/PDF/
 docs/PDF/
+
+# --- the window on Avalonia (Source) ---
+# The markup, the project and the manifest are sources like the code beside them.
+!*.axaml
+!*.csproj
+!*.manifest
+# The font the window carries inside, and the mark it shares with the exe: a clone must build
+# without fetching anything.
+!Source/Assets/**
+!system_core/icons/app.ico
+# The tools the window is checked with, without a mouse (dev-run.ps1 and its neighbours), are
+# sources too. The rule tools/ above is about the downloaded tools in the root, and it takes this
+# folder by its name.
+!Source/Tools/
+# What a build leaves: the caches of dotnet and the published window. Source\Ps is a project
+# of its own - the PowerShell the program carries - and leaves the same two folders.
+Source/bin/
+Source/obj/
+Source/Ps/bin/
+Source/Ps/obj/
+/App/
+# The look of the window on this machine: written beside the manifest, never a source.
+/config/window.json*
+
+# Bytecode caches are never sources.
+__pycache__/

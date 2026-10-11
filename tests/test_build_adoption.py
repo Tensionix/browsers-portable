@@ -600,13 +600,25 @@ def test_update_with_nothing_ticked_and_nothing_found_is_an_error(
         service.update_selected(context)
 
 
-def test_a_ticked_browser_with_no_build_is_skipped_as_before(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_ticked_browser_with_no_build_is_not_a_run_that_went_well(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ticked and not there at all: "done" would read as "updated". (Until 2.0.0 it ended green, with a line of the log.)"""
     context = _context(tmp_path, guard_defender=False, browsers=["brave"])
+    calls = _prepare_update(context, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="No portable build of Brave was found"):
+        service.update_selected(context)
+
+    assert calls == []
+
+
+def test_a_ticked_browser_with_no_build_is_passed_by_beside_one_that_has(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    context = _context(tmp_path, guard_defender=False, browsers=["yandex", "brave"])
+    yandex = _foreign_build(context.paths.input / "Yandex old", "browser.exe")
     calls = _prepare_update(context, monkeypatch)
 
     result = service.update_selected(context)
 
-    assert calls == []
+    assert [(call["id"], call["home"]) for call in calls] == [("yandex", yandex)]
     assert result["skipped"] == [{"browser": "Brave", "reason": "no build"}]
 
 
@@ -663,3 +675,122 @@ def test_the_source_folder_itself_is_not_renamed(tmp_path: Path, monkeypatch: py
     assert home == picked
     assert (picked / "App" / "chrome.exe").is_file()
     assert _bookmarks(picked) == "keep me"
+
+
+# --- the findings of the audit of 11.10.2026 ---------------------------------------
+
+
+def _door_context(tmp_path: Path, source: Path, **parameters: object) -> JobContext:
+    """A context as the console door makes it: the Source is handed over as `paths.input` too."""
+    import dataclasses
+
+    context = _context(tmp_path, input_path=str(source), **parameters)
+    return dataclasses.replace(context, paths=dataclasses.replace(context.paths, input=source))
+
+
+def test_our_own_build_named_as_the_source_keeps_its_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Source pointed straight at a build: the build is that folder, profile and all.
+
+    The door hands the Source over as `paths.input`, and that was a folder "that can never be
+    a build": the browser branch was taken for the build, and Update moved it into `App\\App`
+    and left the real profile one level up.
+    """
+    spec = browser_registry.browser("chrome")
+    picked = tmp_path / "flash" / spec.folder
+    _browser(picked / "App")
+    _profile(picked / "Data")
+    context = _door_context(tmp_path, picked)
+    _says(monkeypatch, "Google Chrome")
+
+    found, unclaimed = service._find_builds(context, [spec])
+
+    assert [item.home for item in found] == [picked] and unclaimed == []
+    assert found[0].layout.profile_dir == picked / "Data"
+    assert service._is_standard_build(context, spec, found[0].layout)
+
+
+def test_a_foreign_build_named_as_the_source_is_rearranged_where_it_is(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    picked = _owner_build(tmp_path / "flash" / "Chrome on the flash drive")
+    context = _door_context(tmp_path, picked)
+    spec = browser_registry.browser("chrome")
+    _says(monkeypatch, "Google Chrome")
+
+    layout = service._adoptable_build(context, spec)
+    assert layout is not None and layout.home == picked and layout.profile_dir == picked / "Data"
+    home = service._adopt_build(context, spec, layout)
+
+    assert home == picked
+    assert (picked / "App" / "chrome.exe").is_file() and not (picked / "App" / "App").exists()
+    assert _bookmarks(picked) == "keep me"
+
+
+def test_the_programs_own_input_is_still_no_build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    context = _context(tmp_path)
+    _browser(context.paths.input / "Chrome")
+    _profile(context.paths.input / "Data")
+    _says(monkeypatch, "Google Chrome")
+
+    found, _unclaimed = service._find_builds(context, [browser_registry.browser("chrome")])
+
+    assert [item.home for item in found] == [context.paths.input / "Chrome"]
+
+
+@pytest.mark.parametrize("name", ["10.10.2026", "2025.03.01", "1.2.3.4"])
+def test_a_folder_named_like_a_date_is_not_the_browsers(tmp_path: Path, name: str) -> None:
+    """A backup kept beside the browser under its date is somebody's, whatever its name looks like."""
+    home = tmp_path / "Chrome flat"
+    _browser(home)
+    _profile(home / "Data")
+    _touch(home / name / "Bookmarks.bak", "my bookmarks")
+    [layout] = adoption.builds_in(tmp_path, "chrome.exe")
+
+    _normalize(layout)
+
+    assert (home / name / "Bookmarks.bak").read_text(encoding="utf-8") == "my bookmarks"
+    assert not (home / "App" / name).exists()
+    # The folder of the old version is the browser's and went with it.
+    assert (home / "App" / "145.0.7632.110" / "chrome.dll").is_file()
+
+
+def test_builds_inside_a_folder_named_like_a_date_are_found(tmp_path: Path) -> None:
+    scope = tmp_path / "input"
+    home = _owner_build(scope / "2025.03.01" / "Chrome")
+
+    [layout] = adoption.builds_in(scope, "chrome.exe")
+
+    assert layout.home == home
+
+
+@pytest.mark.parametrize("product", ["Cent Browser", "Supermium", "Iron"])
+def test_a_chromium_tick_does_not_take_another_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, product: str) -> None:
+    """`chrome.exe` that names itself and is not Chromium is not Chromium, ticked or not."""
+    context = _context(tmp_path)
+    home = _owner_build(context.paths.input / "CentBrowser")
+    _says(monkeypatch, product)
+    ungoogled = browser_registry.browser("ungoogled_chromium")
+
+    found, unclaimed = service._find_builds(context, [ungoogled], ["ungoogled_chromium"])
+
+    assert found == [] and [layout.home for layout in unclaimed] == [home]
+    service._report_unclaimed(context, [ungoogled], unclaimed, ["ungoogled_chromium"])
+    log = context.log_file.read_text(encoding="utf-8")
+    assert f"is {product}, a browser this program does not build" in log and "Tick " not in log
+    # Not under the standard name either: the name of a folder does not change what lies in it.
+    named = _owner_build(context.paths.input / ungoogled.folder)
+    found, _unclaimed = service._find_builds(context, [ungoogled], ["ungoogled_chromium"])
+    assert found == [] and named.is_dir()
+
+
+def test_what_the_program_left_in_its_work_folders_is_no_build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Source pointed at `<Target>\\Portable`: an unpacked installer in `_tmp` is not a browser somebody brought."""
+    context = _context(tmp_path)
+    portable = service._portable_root(context)
+    _browser(portable / "_tmp" / "chrome_payload" / "Chrome-bin")
+    _browser(portable / "_archives" / "unpacked" / "Chrome-bin")
+    real = _owner_build(portable / "Chrome from work")
+    context = _door_context(tmp_path, portable)
+    _says(monkeypatch, "Google Chrome")
+
+    found, unclaimed = service._find_builds(context, [browser_registry.browser("chrome")])
+
+    assert [item.home for item in found] == [real] and unclaimed == []

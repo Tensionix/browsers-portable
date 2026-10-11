@@ -14,11 +14,13 @@ build, trust as a separate act, and an equally separate way to take it back.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from http.client import HTTPException
 from pathlib import Path
-from typing import Any, Iterable, Iterator
-from urllib.error import HTTPError, URLError
+from typing import Any, Callable, Iterable, Iterator
 from urllib.request import Request, urlopen
 from urllib.parse import urlsplit
+import base64
+import binascii
 import contextlib
 import ctypes
 import hashlib
@@ -35,15 +37,13 @@ from system_core.services import build_adoption as adoption
 from system_core.services import portable_libraries as libraries
 from system_core.services.long_paths import MAX_PLAIN_PATH, long_path as _long, plain_path as _plain
 
-from system_core.core.jobs import JobContext, OperationCancelled, hidden_subprocess_kwargs, utf8_subprocess_env
+from system_core.core.jobs import (JobContext, OperationCancelled, TransferNote, hidden_subprocess_kwargs,
+                                   utf8_subprocess_env)
+from system_core.core.paths import expand_percent
 from system_core.services.browser_registry import BROWSERS, BrowserSpec, browser
 
 
 USER_AGENT = "Audion-Browsers-Portable"
-CHROME_PLUS_REPO = "DeftKing/chrome_plus"
-CHROME_PLUS_ASSET = re.compile(r"version-(x86|x64|arm64)-.+\.zip", re.IGNORECASE)
-VIVALDI_PLUS_REPO = "ca-x/vivaldi_plus"
-
 # What makes a build portable, and the operator picks one:
 #   chrome_plus    - Chrome++, the wrapper this program started with;
 #   proxy_library  - the other proxy `version.dll`, published on GitFlic.
@@ -55,7 +55,6 @@ DEFAULT_PORTABLE_ENGINE = "proxy_library"
 # the release page carries the single attachment.
 PROXY_LIBRARY_HOST = "https://gitflic.ru"
 PROXY_LIBRARY_PROJECT = "neyrostalker/proksi-biblioteka"
-PROXY_LIBRARY_DLL = {"x86": "version x32.dll", "x64": "version x64.dll"}
 CHROME_VERSION_API = (
     "https://versionhistory.googleapis.com/v1/chrome/platforms/win64/channels/stable/versions?pageSize=1"
 )
@@ -133,7 +132,7 @@ def _param_list(context: JobContext, key: str) -> list[str]:
 
 def _resolve_project_path(context: JobContext, raw_path: str, default_name: str) -> Path:
     path_text = str(raw_path or "").strip().strip('"') or default_name
-    path = Path(os.path.expandvars(path_text)).expanduser()
+    path = Path(expand_percent(path_text)).expanduser()
     if not path.is_absolute():
         path = context.paths.root / path
     return path.resolve()
@@ -281,6 +280,53 @@ def _kept_etag(target: Path) -> str:
         return ""
 
 
+def _forget_download(context: JobContext, path: Path) -> None:
+    """A kept download that did not open: removed, with the note that vouched for it."""
+    removed = False
+    for item in (path, _etag_note(path)):
+        with contextlib.suppress(OSError):
+            if item.exists():
+                item.unlink()
+                removed = True
+    if removed:
+        context.log(f"[CACHE] {path.name} did not open and is not kept: the next run downloads it again.")
+
+
+def _archive_names(spec: BrowserSpec) -> re.Pattern[str]:
+    """The names the downloads of one browser are kept under, with the notes and drafts beside them."""
+    own = {
+        "github_tag": spec.asset,
+        "chrome_api": r"ChromeStandaloneSetup64-.+\.exe",
+        "yandex_redirect": r"Yandex-.+\.exe",
+    }.get(spec.version_source) or r"(?!)"
+    return re.compile(rf"(?:{own}|{re.escape(spec.id)}-custom-.+\.exe)(?:\.etag|\.part)?", re.IGNORECASE)
+
+
+def _prune_archives(context: JobContext, spec: BrowserSpec, keep: Path) -> None:
+    """Of the downloads of a browser only the one just used stays.
+
+    Nothing ever cleared the folder: an installer per browser per version, a hundred megabytes
+    and more each, for as long as the Target lived - on a flash drive too. A file that has
+    opened makes every older one of the same browser useless.
+    """
+    pattern = _archive_names(spec)
+    spared = {keep.name.casefold(), _etag_note(keep).name.casefold()}
+    freed, count = 0, 0
+    try:
+        candidates = [item for item in keep.parent.iterdir() if item.is_file()]
+    except OSError:
+        return
+    for item in candidates:
+        if item.name.casefold() in spared or not pattern.fullmatch(item.name):
+            continue
+        with contextlib.suppress(OSError):
+            size = item.stat().st_size
+            item.unlink()
+            freed, count = freed + size, count + 1
+    if count:
+        context.log(f"[CACHE] {spec.name}: {count} older download file(s) removed, {freed / 1024 / 1024:,.0f} MB.")
+
+
 def _download(
     context: JobContext,
     url: str,
@@ -325,7 +371,7 @@ def _download(
             if verify_cache:
                 etag = _clean_etag(response.headers.get("ETag"))
             downloaded = 0
-            last_logged_percent = -10
+            note = TransferNote(context, f"{label}: ")
             while True:
                 # A browser is hundreds of megabytes; Cancel must not wait for all of them.
                 _check_cancelled(context, f"{label} was downloaded")
@@ -335,22 +381,30 @@ def _download(
                 handle.write(chunk)
                 downloaded += len(chunk)
                 if total > 0:
-                    fraction = downloaded / total
-                    _progress_between(context, progress_start, progress_end, fraction)
-                    percent = int(fraction * 100)
-                    if percent >= last_logged_percent + 10:
-                        context.log(f"[DOWNLOAD] {label}: {percent}% ({downloaded:,}/{total:,} bytes)")
-                        last_logged_percent = percent
+                    _progress_between(context, progress_start, progress_end, downloaded / total)
+                    note.at(downloaded, total)
             if total <= 0:
                 _progress_between(context, progress_start, progress_end, 1.0)
+            # A connection that closes early ends the reading without an error: what came is
+            # counted against what the server said it would send. A file cut short was kept
+            # under the name of the whole one, and every later run took it from there.
+            if downloaded == 0 or (total > 0 and downloaded != total):
+                raise RuntimeError(
+                    f"Download failed: {url} (the connection closed at {downloaded:,} of "
+                    f"{f'{total:,}' if total > 0 else 'an unknown number of'} bytes)"
+                )
         part.replace(target)
     except OperationCancelled:
         part.unlink(missing_ok=True)
         raise
-    except (HTTPError, URLError, TimeoutError) as exc:
-        if part.exists():
-            part.unlink()
-        raise RuntimeError(f"Download failed: {url} ({exc})") from exc
+    except RuntimeError:
+        part.unlink(missing_ok=True)
+        raise
+    except (OSError, HTTPException) as exc:
+        # The network as it fails in life: a refused or reset connection, a timeout, a body
+        # that stops in the middle (`IncompleteRead`), a disk that is full.
+        part.unlink(missing_ok=True)
+        raise RuntimeError(f"Download failed: {url} ({exc.__class__.__name__}: {exc})") from exc
     if verify_cache:
         # A stale note would vouch for a file it never described.
         if etag:
@@ -407,14 +461,6 @@ def github_latest_assets(repo: str) -> tuple[str, list[tuple[str, str]]]:
     if not assets:
         raise RuntimeError(f"No release assets found for {repo}, neither through the API nor on the release page.")
     return tag, assets
-
-
-def chrome_plus_release(arch: str = "x64") -> tuple[str, str, str]:
-    return libraries.github_release("chrome_plus", arch, github_latest_assets)
-
-
-def vivaldi_plus_release(arch: str = "x64") -> tuple[str, str, str]:
-    return libraries.github_release("vivaldi_plus", arch, github_latest_assets)
 
 
 def _gitflic_page(path: str) -> str:
@@ -665,7 +711,14 @@ _DEFENDER_GUARD_MAX_SECONDS = 3600
 
 
 def _defender_guard_script(context: JobContext) -> Path:
-    return context.paths.system_core / "powershell" / "defender_guard.ps1"
+    """The elevated half of the guard: a script that lies beside this service.
+
+    Until 11.10.2026 it was looked for in `system_core\\powershell` - the folder of the
+    portable PowerShell, which the cleanup of the project empties and git ignores. It was not
+    there: Windows asked for UAC, PowerShell found no file, and after half a minute the build
+    went on without an exclusion. Beside the service it is a source like the service itself.
+    """
+    return Path(__file__).with_name("defender_guard.ps1")
 
 
 def _defender_guard_dir(context: JobContext) -> Path:
@@ -738,9 +791,51 @@ def _cleanup_guard_files(*paths: Path) -> None:
 
 
 def _guard_path_argument(paths: list[Path]) -> str:
-    # Folders are joined with '|', which Windows paths can never contain, so a
-    # single quoted argument survives ShellExecute and the script splits it back.
-    return "|".join(str(path) for path in paths)
+    """The folders as one argument, ready to stand between two quotation marks.
+
+    Folders are joined with '|', which Windows paths can never contain, so a single quoted
+    argument survives ShellExecute and the script splits it back. A backslash right before the
+    closing quote would escape it - a guarded folder that is the root of a drive ends in one
+    (`"D:\\out|E:\\"`), the arguments after it glued together, PowerShell refused them, and the
+    person had answered UAC for nothing. The backslashes at the very end are doubled: two before
+    a quote are read as one, and the quote closes.
+    """
+    joined = "|".join(str(path) for path in paths)
+    return joined + "\\" * (len(joined) - len(joined.rstrip("\\")))
+
+
+def _guard_pending_file(context: JobContext) -> Path:
+    return _defender_guard_dir(context) / "pending.json"
+
+
+def _guard_pending(context: JobContext) -> list[str]:
+    """The folders a guard excluded and was not seen to take back, from earlier runs too."""
+    try:
+        saved = json.loads(_guard_pending_file(context).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [str(item) for item in saved if str(item).strip()] if isinstance(saved, list) else []
+
+
+def _guard_remember(context: JobContext, folders: Iterable[Path | str], *, taken_back: bool) -> None:
+    """Note what a guard excluded, and strike it out when the exclusion is seen to be gone.
+
+    The safety net - "Defender: remove exclusion" - knew only the Source and the Target of the
+    moment it was pressed. An exclusion left by a run on other folders stayed for good.
+    """
+    named = {os.path.normcase(str(item)): str(item) for item in _guard_pending(context)}
+    for folder in folders:
+        key = os.path.normcase(str(folder))
+        if taken_back:
+            named.pop(key, None)
+        else:
+            named[key] = str(folder)
+    target = _guard_pending_file(context)
+    with contextlib.suppress(OSError):
+        if named:
+            target.write_text(json.dumps(sorted(named.values()), ensure_ascii=False, indent=1), encoding="utf-8")
+        else:
+            target.unlink(missing_ok=True)
 
 
 @contextlib.contextmanager
@@ -757,6 +852,12 @@ def _defender_guard(context: JobContext, paths: Path | Iterable[Path]) -> Iterat
 
     if not folders or not _defender_active(context):
         context.log("[DEFENDER] Real-time protection is not active; no exclusion needed.")
+        yield
+        return
+    if not _defender_guard_script(context).is_file():
+        # Nobody is asked for UAC on behalf of a script that is not there.
+        context.log(f"[WARN] [DEFENDER] The guard script is missing ({_defender_guard_script(context)}); "
+                    "building without an exclusion (it may fail on version.dll).")
         yield
         return
 
@@ -794,6 +895,7 @@ def _defender_guard(context: JobContext, paths: Path | Iterable[Path]) -> Iterat
                     break
                 time.sleep(0.3)
             if excluded:
+                _guard_remember(context, folders, taken_back=False)
                 context.log(f"[DEFENDER] Temporary exclusion active for {label}.")
             else:
                 status = _read_guard_result(result)
@@ -814,6 +916,8 @@ def _defender_guard(context: JobContext, paths: Path | Iterable[Path]) -> Iterat
                     removed = True
                     break
                 time.sleep(0.3)
+            if removed:
+                _guard_remember(context, folders, taken_back=True)
             context.log(
                 "[DEFENDER] Exclusion removed."
                 if removed
@@ -827,13 +931,18 @@ def defender_exclusion_remove(context: JobContext) -> dict[str, object]:
 
     A safety net for the rare case where an operation was killed hard and the
     elevated guard never got to remove its exclusion. It clears the output folder
-    and the input folder (what an update excludes, since builds are updated in
-    place wherever they live). Idempotent: removing a path that is not excluded is
-    not an error.
+    and the input folder (what every guard excludes, since builds are updated in
+    place wherever they live) and whatever an earlier run excluded and was not seen
+    to take back - on other folders than those of today. Idempotent: removing a path
+    that is not excluded is not an error. An exclusion that was not removed is not
+    "done": the operation fails, and says why.
     """
     if os.name != "nt":
         raise RuntimeError("Defender exclusions are a Windows-only concern.")
-    folders = [_output_root(context), _input_root(context)]
+    named = {os.path.normcase(str(item)): Path(item) for item in [_output_root(context), _input_root(context)]}
+    for item in _guard_pending(context):
+        named.setdefault(os.path.normcase(item), Path(item))
+    folders = list(named.values())
     label = ", ".join(str(folder) for folder in folders)
     if not _defender_active(context):
         context.log("[DEFENDER] Real-time protection is not active; nothing to remove.")
@@ -862,49 +971,87 @@ def defender_exclusion_remove(context: JobContext) -> dict[str, object]:
         time.sleep(0.3)
     _cleanup_guard_files(result)
     context.log(f"[DEFENDER] {status or 'No confirmation received.'}")
+    if not status.startswith("REMOVED"):
+        raise RuntimeError(
+            f"The exclusion was not removed: {status or 'no confirmation came in 20 seconds'}. "
+            f"Asked for: {label}."
+        )
+    _guard_remember(context, folders, taken_back=True)
     context.progress(1.0)
-    return {"removed": status.startswith("REMOVED"), "paths": [str(f) for f in folders]}
+    return {"removed": True, "paths": [str(f) for f in folders]}
 
 
-def _run_7z(context: JobContext, args: list[str], *, cwd: Path | None = None) -> None:
+def _run_7z(context: JobContext, args: list[str], *, cwd: Path | None = None, doing: str = "7-Zip finished") -> None:
+    """Run 7-Zip to its end - or to a stop.
+
+    Unpacking a browser onto a flash drive and packing a build with its profile take minutes,
+    and STOP was not seen until they were over: the window waited its two minutes and ended the
+    whole tree, the run was neither "stopped" nor finished, and the work folder stayed. The
+    process is asked about every half a second now, and a stop ends it at once.
+    """
     exe = _require_7zip(context)
     command = [str(exe), *args]
-    result = subprocess.run(
+    process = subprocess.Popen(
         command,
         # A process cannot start in a folder given in the long form.
         cwd=str(_plain(cwd) if cwd else context.paths.root),
-        capture_output=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
         errors="replace",
-        timeout=3600,
         **hidden_subprocess_kwargs(),
     )
-    for line in result.stderr.splitlines():
+    deadline = time.monotonic() + 3600
+    while True:
+        try:
+            _stdout, stderr = process.communicate(timeout=0.5)
+            break
+        except subprocess.TimeoutExpired:
+            stopped, late = context.cancelled(), time.monotonic() > deadline
+            if not stopped and not late:
+                continue
+            process.kill()
+            with contextlib.suppress(Exception):
+                process.communicate(timeout=30)
+            if stopped:
+                raise OperationCancelled(f"Cancelled before {doing}.") from None
+            raise RuntimeError("7-Zip did not finish in an hour and was ended.") from None
+    for line in (stderr or "").splitlines():
         if line.strip():
             context.log("[STDERR] " + line)
-    if result.returncode != 0:
-        raise RuntimeError(f"7-Zip failed with exit code {result.returncode}.")
+    if process.returncode != 0:
+        raise RuntimeError(f"7-Zip failed with exit code {process.returncode}.")
 
 
 def _extract_archive(context: JobContext, archive: Path, target: Path) -> None:
     context.log(f"[UNPACK] {archive.name} -> {target.name}")
     _reset_dir(target)
     # 7-Zip takes the long form for both the archive and the output folder.
-    _run_7z(context, ["x", str(_long(archive)), f"-o{_long(target)}", "-y"])
+    _run_7z(context, ["x", str(_long(archive)), f"-o{_long(target)}", "-y"], doing=f"{archive.name} was unpacked")
 
 
-def _copy_tree_contents(source: Path, target: Path) -> None:
+def _copy_seeing_stop(context: JobContext, doing: str) -> Callable[[str, str], Any]:
+    """`shutil.copy2` that looks for a stop before every file: a copy of a browser is thousands of them."""
+    def copy(source: str, destination: str, **options: Any) -> Any:
+        _check_cancelled(context, doing)
+        return shutil.copy2(source, destination, **options)
+    return copy
+
+
+def _copy_tree_contents(context: JobContext, source: Path, target: Path, doing: str) -> None:
     source, target = _long(source), _long(target)
     target.mkdir(parents=True, exist_ok=True)
+    copy = _copy_seeing_stop(context, doing)
     for item in source.iterdir():
         destination = target / item.name
         if item.is_dir():
             if destination.exists():
                 _remove_tree(destination)
-            shutil.copytree(item, destination)
+            shutil.copytree(item, destination, copy_function=copy)
         else:
-            shutil.copy2(item, destination)
+            copy(str(item), str(destination))
 
 
 def _find_dir(root: Path, name: str) -> Path | None:
@@ -1028,10 +1175,6 @@ def _chrome_plus_arch(context: JobContext) -> str:
     """The architecture the operator forced, or `''` for "read it off the browser"."""
     value = _param_text(context, "chrome_plus_arch", "auto").lower()
     return value if value in {"x86", "x64", "arm64"} else ""
-
-
-def _download_chrome_plus(context: JobContext) -> tuple[Path, str]:
-    return _download_wrapper(context, "chrome_plus", _chrome_plus_arch(context) or "x64")
 
 
 def _chrome_plus_arch_dir(context: JobContext, archive: Path, arch: str) -> Path:
@@ -1257,6 +1400,43 @@ def _place_wrapper(
     return _place_proxy_library(context, spec, portable_dir, archive, block_registry=wipe_registry)
 
 
+def _keep_library_settings(
+    context: JobContext,
+    spec: BrowserSpec,
+    build: Path,
+    staged: Path,
+    engine: str,
+    wipe_registry: bool | None = None,
+) -> bool:
+    """The settings file of the library, as the person left it in the build, into the new one.
+
+    A library is set up by its file beside the browser - `version.ini`, `chrome++.ini`,
+    `config.ini` - and a person edits it: a switch turned on, a command line, a hotkey. "Update
+    DLL only" kept that file and "Update" wrote a fresh one over it with the new `App`; the same
+    build lost its settings or kept them by which button was pressed (the owner, 11.10.2026, of
+    the two: "as you see right" - the file is the person's, so both keep it). Only the file of
+    the same library is kept: another library reads another file, and gets its own defaults.
+
+    With `wipe_registry` given, the one line of `chrome++.ini` the form answers for -
+    `launch_on_exit` - is set anew by that flag; the rest of the file stays.
+    """
+    if libraries.installed_engine(build) != engine:
+        return False
+    name = libraries.CONFIG_FILES[engine]
+    try:
+        kept = _managed_build_file(build, f"App/{name}")
+    except RuntimeError as exc:
+        context.log(f"[SKIP] {exc}")
+        return False
+    if not kept.is_file():
+        return False
+    shutil.copy2(kept, staged / "App" / name)
+    if engine == "chrome_plus" and wipe_registry is not None:
+        _configure_chrome_plus_ini(context, spec, staged, wipe_registry=wipe_registry)
+    context.log(f"[INI] {name}: kept as it was in the build")
+    return True
+
+
 def _write_launcher(context: JobContext, spec: BrowserSpec, portable_dir: Path) -> Path:
     """The `.cmd` that starts the build.
 
@@ -1351,9 +1531,11 @@ def _publish(context: JobContext, source_dir: Path, name: str) -> Path:
     if _long(target).exists():
         raise RuntimeError(f"{target} already exists; a new build is put only where the place is free.")
     try:
-        shutil.copytree(_long(source_dir), _long(target))
-    except OSError:
-        # Only what this very call has put there: the place was free a moment ago.
+        shutil.copytree(_long(source_dir), _long(target),
+                        copy_function=_copy_seeing_stop(context, f"{name} was put into {target.parent}"))
+    except BaseException:
+        # Only what this very call has put there: the place was free a moment ago. A stop in
+        # the middle of the copy goes the same way - half a build is not left in the Target.
         with contextlib.suppress(OSError):
             _remove_tree(target)
         raise
@@ -1361,30 +1543,102 @@ def _publish(context: JobContext, source_dir: Path, name: str) -> Path:
     return target
 
 
-def _zip_dir(context: JobContext, source_dir: Path, zip_path: Path) -> Path:
-    if zip_path.exists():
-        zip_path.unlink()
+def _archive_draft(archive_path: Path) -> Path:
+    """Where an archive is written until it is whole: beside its place, under a name of its own."""
+    return archive_path.with_name(archive_path.name + ".part")
+
+
+# What a build is given to another person as: the folders a browser fills itself are there, and empty.
+HANDOVER_EMPTY = ("Data", "Cache")
+
+
+def _handover_parts(spec: BrowserSpec, build: Path) -> list[str]:
+    """What of a build goes into an archive that is "ready to hand over": what the program put there.
+
+    The browser, its launcher, the note of the versions inside, the certificate files. Not the
+    profile, not the cache, not `Old files`, not whatever a person keeps beside them. The
+    archive of an updated build used to be the whole folder - bookmarks, passwords and cookies
+    with it - under a tooltip that said it could be handed over at once.
+    """
+    wanted = ("App", f"{spec.folder}.cmd", BUILD_STAMP_FILE, CERTIFICATES_DIRECTORY)
+    return [name for name in wanted if (_long(build) / name).exists()]
+
+
+def _zip_dir(context: JobContext, source_dir: Path, zip_path: Path, parts: list[str] | None = None) -> Path:
+    """Pack a build into a ZIP that is either whole or not there.
+
+    It was written under its final name, the one before it deleted first: a full Target, a
+    locked file or a stop left a part of an archive that looked like a finished one, and the
+    archive it replaced was already gone. It is written beside its place and takes it only
+    when it is whole; a stop is looked for before every file.
+
+    With `parts` only those entries of the folder are packed, and `Data` and `Cache` go in empty.
+    """
     source_dir = _long(source_dir)
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for item in source_dir.rglob("*"):
-            if item.is_dir():
-                archive.writestr(item.relative_to(source_dir.parent).as_posix().rstrip("/") + "/", b"")
-            elif item.is_file():
-                archive.write(item, item.relative_to(source_dir.parent))
-    context.log(f"[OK] ZIP: {zip_path} ({zip_path.stat().st_size:,} bytes)")
+    draft = _archive_draft(zip_path)
+
+    def items() -> Iterator[Path]:
+        if parts is None:
+            yield from source_dir.rglob("*")
+            return
+        for name in parts:
+            top = source_dir / name
+            yield top
+            if top.is_dir():
+                yield from top.rglob("*")
+
+    try:
+        with zipfile.ZipFile(draft, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+            for item in items():
+                _check_cancelled(context, f"{zip_path.name} was packed")
+                if item.is_dir():
+                    archive.writestr(item.relative_to(source_dir.parent).as_posix().rstrip("/") + "/", b"")
+                elif item.is_file():
+                    archive.write(item, item.relative_to(source_dir.parent))
+            if parts is not None:
+                for name in HANDOVER_EMPTY:
+                    archive.writestr(f"{source_dir.name}/{name}/", b"")
+        draft.replace(zip_path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            draft.unlink(missing_ok=True)
+        raise
+    context.log(f"[OK] ZIP: {zip_path} ({zip_path.stat().st_size:,} bytes)"
+                + ("; the profile and the cache are not in it" if parts is not None else ""))
     return zip_path
 
 
-def _archive_build(context: JobContext, source_dir: Path, base_name: str) -> Path:
+def _archive_build(context: JobContext, source_dir: Path, base_name: str, parts: list[str] | None = None) -> Path:
+    """Pack a build. `parts` names what of the folder goes in - an updated build is packed without its profile."""
     archive_format = _param_text(context, "archive_format", "zip").lower()
     if archive_format == "7z":
         archive_path = _portable_root(context) / f"{base_name}.7z"
-        if archive_path.exists():
-            archive_path.unlink()
-        _run_7z(context, ["a", "-t7z", "-mx=9", str(archive_path), source_dir.name], cwd=source_dir.parent)
-        context.log(f"[OK] 7Z: {archive_path} ({archive_path.stat().st_size:,} bytes)")
+        draft = _archive_draft(archive_path)
+        skeleton = _tmp_dir(context) / f"handover-{uuid.uuid4().hex}"
+        try:
+            draft.unlink(missing_ok=True)
+            # The kind is named, so the name of the draft does not have to end in ".7z".
+            packed = [source_dir.name] if parts is None else [f"{source_dir.name}\\{name}" for name in parts]
+            _run_7z(context, ["a", "-t7z", "-mx=9", str(draft), *packed], cwd=source_dir.parent,
+                    doing=f"{archive_path.name} was packed")
+            if parts is not None:
+                # The folders the browser fills itself, empty: added from a skeleton of the build.
+                for name in HANDOVER_EMPTY:
+                    (skeleton / source_dir.name / name).mkdir(parents=True, exist_ok=True)
+                _run_7z(context, ["a", "-t7z", str(draft), source_dir.name], cwd=skeleton,
+                        doing=f"{archive_path.name} was packed")
+            draft.replace(archive_path)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                draft.unlink(missing_ok=True)
+            raise
+        finally:
+            with contextlib.suppress(OSError):
+                _remove_tree(skeleton)
+        context.log(f"[OK] 7Z: {archive_path} ({archive_path.stat().st_size:,} bytes)"
+                    + ("; the profile and the cache are not in it" if parts is not None else ""))
         return archive_path
-    return _zip_dir(context, source_dir, _portable_root(context) / f"{base_name}.zip")
+    return _zip_dir(context, source_dir, _portable_root(context) / f"{base_name}.zip", parts)
 
 
 # ---------------------------------------------------------------------------
@@ -1440,13 +1694,95 @@ def _write_certificate_wrappers(context: JobContext, target: Path) -> list[Path]
     return written
 
 
-def stage_certificates(context: JobContext, portable_dir: Path | None = None) -> dict[str, object]:
+def _certificate_thumbprint(path: Path) -> str:
+    """The thumbprint Windows names a certificate by - SHA-1 of the certificate itself - read from its file.
+
+    A `.crt` is the certificate as it is (DER) or its base64 between two marker lines (PEM).
+    `''` for a file that is neither, and for one that holds more than a single certificate:
+    `certutil -addstore` would add every one of them, and only the first would have been compared.
+    """
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return ""
+    head, tail = b"-----BEGIN CERTIFICATE-----", b"-----END CERTIFICATE-----"
+    if head in raw:
+        if raw.count(head) != 1 or raw.count(tail) != 1 or raw.split(tail, 1)[1].strip():
+            return ""
+        try:
+            raw = base64.b64decode(b"".join(raw.split(head, 1)[1].split(tail, 1)[0].split()), validate=True)
+        except (ValueError, binascii.Error):
+            return ""
+    if not raw.startswith(b"\x30"):
+        return ""
+    return hashlib.sha1(raw).hexdigest().upper()  # noqa: S324 - the name Windows gives a certificate, not a safeguard
+
+
+def _certificate_file(context: JobContext, item: dict[str, str], folder: Path, reserve: Path | None = None) -> Path:
+    """The file of a certificate in `folder`, proved to be the certificate it is named after.
+
+    `reserve` is a folder that may hold the file already - the build that is being updated:
+    a file proved there is copied, and the server is not asked again.
+
+
+    The file was taken by its name: whatever lay in a shared Target as
+    `russian_trusted_root_ca.crt` went into the user's Root store, and only afterwards was the
+    expected thumbprint looked for - the operation failed, the foreign root stayed, and Revoke
+    removes by the two known thumbprints alone. A download cut short was reused the same way,
+    for good. Now the thumbprint is read from the file before anything is done with it; a file
+    that is something else is moved aside under a name of its own - it may be somebody's - and
+    the certificate is fetched anew.
+    """
+    wanted = str(item["thumbprint"]).upper()
+    path = folder / str(item["name"])
+    if path.is_file() and _certificate_thumbprint(path) != wanted:
+        aside = path.with_name(f"{path.name}.not-{wanted[:8]}")
+        number = 2
+        while aside.exists():
+            aside = path.with_name(f"{path.name}.not-{wanted[:8]} ({number})")
+            number += 1
+        path.rename(aside)
+        context.log(f"[WARN] {path.name} in {_plain(folder)} is not {item['subject']}: set aside as {aside.name}.")
+    kept = reserve / path.name if reserve is not None else None
+    if not path.is_file() and kept is not None and kept.is_file() and _certificate_thumbprint(kept) == wanted:
+        shutil.copy2(kept, path)
+        context.log(f"[CACHE] {item['subject']}: {path.name} as it lies in the build")
+    if not path.is_file():
+        _download(context, str(item["url"]), path, str(item["subject"]), use_cache=False)
+        found = _certificate_thumbprint(path)
+        if found != wanted:
+            path.unlink(missing_ok=True)
+            raise RuntimeError(
+                f"{item['url']} did not give {item['subject']}: the file has the thumbprint "
+                f"{found or '(not a single certificate)'}, the certificate is {wanted}. Nothing was installed."
+            )
+    return path
+
+
+def _certificates_in(build: Path) -> bool:
+    """Whether the certificate files lie in the build."""
+    folder = _long(build) / CERTIFICATES_DIRECTORY
+    return all((folder / str(item["name"])).is_file() for item in RUSSIAN_TRUSTED_CERTIFICATES)
+
+
+def _put_certificates(context: JobContext, spec: BrowserSpec, staged: Path, build: Path) -> None:
+    """The certificate files, already fetched and proved, from the work folder into the build."""
+    try:
+        target = _long(build) / CERTIFICATES_DIRECTORY
+        target.mkdir(exist_ok=True)
+        for item in _long(staged).iterdir():
+            if item.is_file():
+                _managed_build_file(build, f"{CERTIFICATES_DIRECTORY}/{item.name}")
+                shutil.copy2(item, target / item.name)
+    except (OSError, RuntimeError) as exc:
+        # The browser in the build is already the new one: this is a line of the log, not a failed update.
+        context.log(f"[WARN] {spec.name}: the certificate files could not be put into the build ({exc}).")
+
+
+def stage_certificates(context: JobContext, portable_dir: Path | None = None, reserve: Path | None = None) -> dict[str, object]:
     """Put the certificate files and their two wrappers into the build."""
     target = _certificates_dir(context, portable_dir)
-    files: list[str] = []
-    for item in RUSSIAN_TRUSTED_CERTIFICATES:
-        asset = _download(context, str(item["url"]), target / str(item["name"]), str(item["subject"]))
-        files.append(str(asset.path))
+    files = [str(_certificate_file(context, item, target, reserve)) for item in RUSSIAN_TRUSTED_CERTIFICATES]
     wrappers = _write_certificate_wrappers(context, target)
     return {"directory": str(target), "files": files, "wrappers": [str(path) for path in wrappers]}
 
@@ -1489,10 +1825,9 @@ def install_certificates(context: JobContext) -> dict[str, object]:
         raise RuntimeError("Certificate installation is a Windows-only operation.")
     target = _certificates_dir(context)
     results: list[dict[str, object]] = []
-    for index, item in enumerate(RUSSIAN_TRUSTED_CERTIFICATES, start=1):
-        path = target / str(item["name"])
-        if not path.is_file():
-            _download(context, str(item["url"]), path, str(item["subject"]))
+    # Every file is proved before the first of them reaches a store: a set installed by half is worse than none.
+    paths = [_certificate_file(context, item, target) for item in RUSSIAN_TRUSTED_CERTIFICATES]
+    for index, (item, path) in enumerate(zip(RUSSIAN_TRUSTED_CERTIFICATES, paths), start=1):
         before = _certificate_present(str(item["thumbprint"]), str(item["store"]))
         context.log(f"[RUN] certutil -addstore -user -f {item['store']} {path.name}")
         result = subprocess.run(
@@ -1602,26 +1937,6 @@ def _selected_specs(context: JobContext, key: str = "browsers") -> list[BrowserS
     return [browser(item) for item in selected]
 
 
-def _existing_build(context: JobContext, spec: BrowserSpec) -> Path | None:
-    """A build to update, wherever the person pointed the Source at.
-
-    Both readings of "this folder" are accepted, because both are what someone
-    means when they pick one: the build itself, or the folder holding it. The
-    published Target is the last resort, so an update still works when nothing
-    was picked at all.
-    """
-    source = _input_root(context)
-    candidates = (
-        source if source.name == spec.folder else None,
-        source / spec.folder,
-        _portable_root(context) / spec.folder,
-    )
-    for candidate in candidates:
-        if candidate is not None and (candidate / "App").is_dir():
-            return candidate
-    return None
-
-
 def _claims_executable(spec: BrowserSpec, executable: Path) -> bool | None:
     """Whether the executable found on disk is this browser.
 
@@ -1633,6 +1948,10 @@ def _claims_executable(spec: BrowserSpec, executable: Path) -> bool | None:
     product = adoption.file_string(executable, "ProductName").strip().lower()
     if spec.product_name:
         return (product == spec.product_name.lower()) if product else None
+    # A file that names itself, and not by the name this browser's family goes by, is another
+    # browser altogether: no folder name and no tick makes it this one.
+    if spec.family_product and product and product != spec.family_product.lower():
+        return False
     rivals = [
         item for item in BROWSERS
         if item.id != spec.id and item.executable.lower() == spec.executable.lower()
@@ -1680,8 +1999,17 @@ def _requested_specs(context: JobContext, key: str = "browsers") -> tuple[list[B
 
 
 def _build_containers(context: JobContext) -> list[Path]:
-    """Folders that hold builds and can never be one themselves."""
-    return [context.paths.root, context.paths.input, context.paths.output, _portable_root(context)]
+    """Folders that hold builds and can never be one themselves.
+
+    The program, its own `input` and `output`, the Target and what is published in it. The
+    Source is not one of them by being the Source: a person points it at the folder that holds
+    the builds or straight at a build, and both are meant. The console door hands the Source
+    over as `paths.input`, and while that stood in this list a build named as the Source was
+    never a build - its browser branch was taken for one, without the profile beside it, and
+    Update rearranged that branch and left the real profile outside.
+    """
+    root = context.paths.root
+    return [root, root / "input", root / "output", _output_root(context), _portable_root(context)]
 
 
 def _accepts_build(spec: BrowserSpec, layout: adoption.Layout, explicit: Iterable[str] = ()) -> bool:
@@ -1815,10 +2143,19 @@ def _report_unclaimed(
             continue
         product = adoption.file_string(layout.browser_dir / spec.executable, "ProductName")
         candidates = [
-            item.name for item in BROWSERS
-            if item.executable.lower() == spec.executable.lower() and not item.product_name and item.id not in ticked
+            item for item in BROWSERS
+            if item.executable.lower() == spec.executable.lower() and not item.product_name
         ]
-        hint = f" Tick {' or '.join(candidates)} to update it." if candidates else ""
+        # A browser that names itself and is none of those this program builds: no tick makes it one.
+        if product and not any(_claims_executable(item, layout.browser_dir / spec.executable) is not False for item in BROWSERS
+                               if item.executable.lower() == spec.executable.lower()):
+            context.log(
+                f"[SKIP] {home.name}: {spec.executable} there is {product}, a browser this program does not build. "
+                "It is left as it is."
+            )
+            continue
+        names = [item.name for item in candidates if item.id not in ticked]
+        hint = f" Tick {' or '.join(names)} to update it." if names else ""
         context.log(
             f"[SKIP] {home.name}: {spec.executable} there is {product or 'not identified'}, "
             f"and that does not say which browser it is.{hint}"
@@ -1891,6 +2228,29 @@ def _adopt_build(
         ) from exc
 
 
+def _builds_of_ticked(
+    context: JobContext, specs: list[BrowserSpec]
+) -> tuple[list[FoundBuild], list[dict[str, object]]]:
+    """The builds of the ticked browsers, and a line for each browser that has none.
+
+    Every operation that works on a build already there finds it the same way - by the
+    executable, anywhere under the Source, then in the Target. "Update DLL only" and "Add to
+    build" used to look in the Source itself and right under it, by the standard folder name
+    alone: the builds Check had just listed and Update had just updated - one folder deeper,
+    or under a name of their own - were answered with "No existing builds found".
+    """
+    explicit = [spec.id for spec in specs]
+    found, unclaimed = _find_builds(context, specs, explicit)
+    _report_unclaimed(context, specs, unclaimed, explicit)
+    skipped: list[dict[str, object]] = []
+    present = {item.spec.id for item in found}
+    for spec in specs:
+        if spec.id not in present:
+            context.log(f"[SKIP] {spec.name}: no existing build.")
+            skipped.append({"browser": spec.name, "reason": "no build"})
+    return found, skipped
+
+
 def _published_wrapper_version(context: JobContext, engine: str) -> str:
     arch = _chrome_plus_arch(context) or "x64"
     lookup = proxy_library_release if engine == "proxy_library" else lambda: libraries.github_release(engine, arch, github_latest_assets)
@@ -1922,12 +2282,17 @@ def check_updates(context: JobContext) -> dict[str, object]:
     sources: dict[str, tuple[str, str]] = {}
     etags: dict[str, str] = {}
     for index, (spec, item) in enumerate(targets, start=1):
+        _check_cancelled(context, f"every build was checked ({index - 1} of {len(targets)} were)")
         label = item.label if item else spec.name
         if spec.id not in sources:
             try:
                 sources[spec.id] = (_browser_source(context, spec)[0], "")
-            except RuntimeError as exc:
-                sources[spec.id] = ("", str(exc))
+            except OperationCancelled:
+                raise
+            except Exception as exc:  # noqa: BLE001 - one vendor that does not answer must not take the other rows along
+                # A network that fails is an `OSError` (`URLError`, a timeout), not a `RuntimeError`:
+                # caught by its narrow name, one unreachable server ended the whole check with a traceback.
+                sources[spec.id] = ("", f"{exc.__class__.__name__}: {exc}" if not isinstance(exc, RuntimeError) else str(exc))
         published, problem = sources[spec.id]
         if problem:
             context.log(f"[FAIL] {label}: {problem}")
@@ -2016,10 +2381,13 @@ def _bring_app_beside(context: JobContext, spec: BrowserSpec, home: Path, staged
             f"{spec.name}: the build is in use, so App cannot be replaced. "
             "Close the browser and run the update again."
         )
+    _clear_leftovers(context, spec, home)
     incoming = home / f"App.incoming-{os.getpid()}"
     _remove_tree(incoming)
     try:
-        shutil.move(str(_long(staged_app)), str(incoming))
+        # On another volume the move is a copy of thousands of files: a stop is looked for at each.
+        shutil.move(str(_long(staged_app)), str(incoming),
+                    copy_function=_copy_seeing_stop(context, f"the new {spec.name} was copied into {_plain(home)}"))
     except OSError as exc:
         with contextlib.suppress(OSError):
             _remove_tree(incoming)
@@ -2027,7 +2395,56 @@ def _bring_app_beside(context: JobContext, spec: BrowserSpec, home: Path, staged
             f"{spec.name}: the new browser could not be copied into {_plain(home)}, "
             f"and the build is as it was. ({_copy_failure(exc)})"
         ) from exc
+    except BaseException:
+        # A stop in the middle of the copy: the build is as it was, and half a browser is not left in it.
+        with contextlib.suppress(OSError):
+            _remove_tree(incoming)
+        raise
     return incoming
+
+
+def _process_alive(pid: int) -> bool:
+    if pid <= 0 or os.name != "nt":
+        return False
+    handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        return bool(ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == 259
+    finally:
+        ctypes.windll.kernel32.CloseHandle(handle)
+
+
+def _clear_leftovers(context: JobContext, spec: BrowserSpec, home: Path) -> None:
+    """What a run that was ended hard left in the build: a new browser never put in, an old one never removed.
+
+    Each run names its work folders by its own process and cleared only those, so the folders
+    of a run that was killed - hundreds of megabytes each - stayed in the person's build for
+    good. A folder of a process that is no longer alive is nobody's work. A build caught
+    between the two renames of a swap has no `App` at all: its old browser is given back first.
+    """
+    try:
+        found = [item for item in home.iterdir() if item.is_dir()
+                 and item.name.lower().startswith(("app.incoming-", "app.replaced-"))]
+    except OSError:
+        return
+    stale = []
+    for item in found:
+        tail = item.name.rsplit("-", 1)[-1]
+        if tail.isdigit() and int(tail) != os.getpid() and not _process_alive(int(tail)):
+            stale.append(item)
+    app = home / "App"
+    for item in sorted(stale, key=lambda entry: entry.name.lower()):
+        try:
+            if not app.exists() and item.name.lower().startswith("app.replaced-"):
+                item.rename(app)
+                context.log(f"[RECOVER] {spec.name}: an update was cut short; the browser it had set aside is App again.")
+                continue
+            _remove_tree(item)
+            context.log(f"[CLEAN] {spec.name}: {item.name} of a run that did not finish was removed from {_plain(home)}.")
+        except OSError as exc:
+            context.log(f"[WARN] {spec.name}: {item.name} of a run that did not finish could not be removed ({exc}).")
 
 
 def _copy_failure(exc: OSError) -> str:
@@ -2113,7 +2530,7 @@ def _replace_wrapper_in_place(
     context: JobContext, spec: BrowserSpec, build: Path, staged: Path, engine: str,
 ) -> None:
     """Commit known wrapper files on the build's volume, with rollback on failure."""
-    config = {"chrome_plus": "chrome++.ini", "proxy_library": "version.ini", "vivaldi_plus": "config.ini"}[engine]
+    config = libraries.CONFIG_FILES[engine]
     desired = ["App/version.dll", f"App/{config}", "App/portable-library.json", f"{spec.folder}.cmd", BUILD_STAMP_FILE]
     obsolete = [f"App/{name}" for name in ("chrome++.ini", "version.ini") if name != config]
     if libraries.installed_engine(build) == "vivaldi_plus" and engine != "vivaldi_plus":
@@ -2130,8 +2547,7 @@ def _replace_wrapper_in_place(
         elif not target.exists():
             continue
         changes.append((target, source))
-    if context.cancelled():
-        raise RuntimeError("Wrapper update cancelled before changing the build.")
+    _check_cancelled(context, f"the library of {spec.name} was changed")
     transaction = build / f".audion-wrapper-update-{uuid.uuid4().hex}"
     transaction.mkdir()
     committed: list[tuple[Path, Path | None]] = []
@@ -2147,8 +2563,7 @@ def _replace_wrapper_in_place(
             prepared.append((target, replacement, backup))
         for target, replacement, backup in prepared:
             _managed_build_file(build, str(target.relative_to(build)))
-            if context.cancelled():
-                raise RuntimeError("Wrapper update cancelled.")
+            _check_cancelled(context, f"every library file of {spec.name} was replaced")
             if replacement is None:
                 target.unlink()
             else:
@@ -2168,6 +2583,9 @@ def _replace_wrapper_in_place(
         if rollback_errors:
             raise RuntimeError(f"{spec.name}: wrapper update failed; recovery files kept in {transaction}. {rollback_errors}") from exc
         _remove_tree(transaction)
+        if isinstance(exc, OperationCancelled):
+            # Stopped half way and put back whole: a stop, not a failure of this browser.
+            raise OperationCancelled(f"{exc} {spec.name}: the library was put back as it was.") from None
         raise RuntimeError(f"{spec.name}: wrapper update failed and was rolled back. Close the browser and retry. ({exc})") from exc
     _remove_tree(transaction)
     context.log(f"[UPDATE] Wrapper replaced in place: {build}")
@@ -2178,74 +2596,97 @@ def update_libraries_selected(context: JobContext) -> dict[str, object]:
     specs = _selected_specs(context)
     engine = _portable_engine(context)
     updated: list[dict[str, object]] = []
-    skipped: list[dict[str, object]] = []
     failed: list[dict[str, str]] = []
     archives: dict[str, tuple[Path, str]] = {}
+    guard_asked = False
+    guards = contextlib.ExitStack()
+    found, skipped = _builds_of_ticked(context, specs)
     try:
-        for index, spec in enumerate(specs, start=1):
+        for index, item in enumerate(found, start=1):
+            spec, build, label = item.spec, item.home, item.label
             try:
-                if context.cancelled():
-                    raise RuntimeError("Wrapper update cancelled.")
-                build = _existing_build(context, spec)
-                if build is None:
-                    context.log(f"[SKIP] {spec.name}: no existing build.")
-                    skipped.append({"browser": spec.name, "reason": "no build"})
+                _check_cancelled(context, f"the library of {label} was touched")
+                if not item.layout.standard:
+                    # The library lies beside the browser in `App`, and a build from elsewhere has
+                    # no `App` yet: Update makes one of it, and keeps the profile while it does.
+                    where = os.path.relpath(item.layout.browser_dir, build)
+                    context.log(
+                        f"[SKIP] {label}: the browser lies {'right in the folder' if where == '.' else f'in {where!r}'}, "
+                        "not in App. Update brings the build to the standard layout; the library alone is replaced there."
+                    )
+                    skipped.append({"browser": spec.name, "reason": "not in the standard layout", "folder": build.name})
                     continue
                 executable = _managed_build_file(build, f"App/{spec.executable}")
                 detected, forced = pe_architecture(executable), _chrome_plus_arch(context)
                 if not detected:
-                    raise RuntimeError(f"{spec.name}: cannot read the browser architecture.")
+                    raise RuntimeError(f"{label}: cannot read the browser architecture.")
                 if forced and forced != detected:
-                    raise RuntimeError(f"{spec.name}: browser is {detected}; requested library is {forced}. They must match.")
+                    raise RuntimeError(f"{label}: browser is {detected}; requested library is {forced}. They must match.")
                 libraries.require_architecture(engine, detected)
                 old_version, old_wrapper = build_versions(spec, build)
-                guard = _defender_guard(context, [_output_root(context), build]) if _param_bool(context, "guard_defender", True) else contextlib.nullcontext()
-                with guard:
-                    if detected not in archives:
-                        archives[detected] = _download_wrapper(context, engine, detected)
-                    archive, release = archives[detected]
-                    staged = _tmp_dir(context) / f"wrapper-{uuid.uuid4().hex}"
-                    (staged / "App").mkdir(parents=True)
-                    shutil.copy2(executable, staged / "App" / spec.executable)
-                    _place_wrapper(context, spec, staged, engine=engine, archive=archive, wipe_registry=False)
-                    config = {"chrome_plus": "chrome++.ini", "proxy_library": "version.ini", "vivaldi_plus": "config.ini"}[engine]
-                    if libraries.installed_engine(build) == engine:
-                        old_ini = _managed_build_file(build, f"App/{config}")
-                        if old_ini.is_file():
-                            shutil.copy2(old_ini, staged / "App" / config)
-                    _write_launcher(context, spec, staged)
-                    old_launcher = _managed_build_file(build, f"{spec.folder}.cmd")
-                    if libraries.installed_engine(build) == engine and old_launcher.is_file():
-                        shutil.copy2(old_launcher, staged / old_launcher.name)
-                    stamp = _managed_build_file(build, BUILD_STAMP_FILE)
-                    metadata: dict[str, Any] = {}
-                    if stamp.is_file():
-                        try:
-                            saved = json.loads(stamp.read_text(encoding="utf-8"))
-                            metadata = saved if isinstance(saved, dict) else {}
-                        except (OSError, ValueError):
-                            context.log("[INFO] Previous build note could not be read.")
-                    _write_build_stamp(context, spec, staged, {
-                        **metadata, "mode": "wrapper_update", "portable_engine": engine,
-                        "browser_version": old_version, "wrapper_release": release,
-                        "previous_wrapper_version": old_wrapper,
-                    })
-                    _replace_wrapper_in_place(context, spec, build, staged, engine)
-                    updated.append({"browser": spec.name, "id": spec.id, "build": str(build),
-                                    "version": old_version, "previous_wrapper_version": old_wrapper,
-                                    "wrapper_version": build_versions(spec, build)[1] or release,
-                                    "portable_engine": engine})
-                    context.log(f"[DONE] {spec.name}: only the wrapper updated.")
+                # One guard for the whole batch, opened when the first browser gets as far as needing it:
+                # a guard per browser was a question of UAC per browser. It covers the Source and the
+                # Target - every place a build can lie in - the very folders the safety net takes back.
+                if not guard_asked:
+                    guard_asked = True
+                    if _param_bool(context, "guard_defender", True):
+                        guards.enter_context(_defender_guard(context, [_output_root(context), _input_root(context)]))
+                if detected not in archives:
+                    archives[detected] = _download_wrapper(context, engine, detected)
+                archive, release = archives[detected]
+                staged = _tmp_dir(context) / f"wrapper-{uuid.uuid4().hex}"
+                (staged / "App").mkdir(parents=True)
+                shutil.copy2(executable, staged / "App" / spec.executable)
+                _place_wrapper(context, spec, staged, engine=engine, archive=archive, wipe_registry=False)
+                _keep_library_settings(context, spec, build, staged, engine)
+                _write_launcher(context, spec, staged)
+                old_launcher = _managed_build_file(build, f"{spec.folder}.cmd")
+                if libraries.installed_engine(build) == engine and old_launcher.is_file():
+                    shutil.copy2(old_launcher, staged / old_launcher.name)
+                stamp = _managed_build_file(build, BUILD_STAMP_FILE)
+                metadata: dict[str, Any] = {}
+                if stamp.is_file():
+                    try:
+                        saved = json.loads(stamp.read_text(encoding="utf-8"))
+                        metadata = saved if isinstance(saved, dict) else {}
+                    except (OSError, ValueError):
+                        context.log("[INFO] Previous build note could not be read.")
+                _write_build_stamp(context, spec, staged, {
+                    **metadata, "mode": "wrapper_update", "portable_engine": engine,
+                    "browser_version": old_version, "wrapper_release": release,
+                    "previous_wrapper_version": old_wrapper,
+                })
+                _replace_wrapper_in_place(context, spec, build, staged, engine)
+                updated.append({"browser": spec.name, "id": spec.id, "build": str(build),
+                                "version": old_version, "previous_wrapper_version": old_wrapper,
+                                "wrapper_version": build_versions(spec, build)[1] or release,
+                                "portable_engine": engine})
+                context.log(f"[DONE] {label}: only the wrapper updated.")
+            except OperationCancelled as exc:
+                # A stop is not one browser that failed: the batch does not go on to the next,
+                # and the run is reported as stopped, not as done.
+                done = ", ".join(str(item["browser"]) for item in updated) or "nothing"
+                raise OperationCancelled(f"{exc} Updated before that: {done}.") from None
             except Exception as exc:  # noqa: BLE001 - keep the other builds available
-                context.log(f"[FAIL] {spec.name}: {exc}")
-                failed.append({"browser": spec.name, "error": str(exc)})
+                context.log(f"[FAIL] {label}: {exc}")
+                failed.append({"browser": spec.name, "folder": build.name, "error": str(exc)})
             finally:
-                context.progress(index / len(specs))
+                context.progress(index / len(found))
     finally:
-        if not _param_bool(context, "keep_temp", False):
-            _discard_tmp(context)
+        try:
+            if not _param_bool(context, "keep_temp", False):
+                _discard_tmp(context)
+        finally:
+            # Released last: what is cleared from the work folder is the library too.
+            guards.close()
     if not updated:
-        raise RuntimeError("; ".join(item["error"] for item in failed) or "No existing builds found. Select the build or its parent as Source.")
+        elsewhere = [str(item["folder"]) for item in skipped if item.get("reason") == "not in the standard layout"]
+        raise RuntimeError(
+            "; ".join(item["error"] for item in failed)
+            or (f"No build in the standard layout: {', '.join(elsewhere)} - run Update first, it brings a build "
+                "to App, Data and Cache and keeps the profile." if elsewhere else "")
+            or "No existing builds found. Select the build or its parent as Source."
+        )
     return {"updated": updated, "skipped": skipped, "failed": failed, "portable_engine": engine}
 
 
@@ -2272,14 +2713,18 @@ def _build_one(
     """
     published, url, filename = _browser_source(context, spec)
     context.log(f"[{spec.name}] published: {published or 'unknown'}")
+    permanent = _permanent_installer(context, spec)
     asset = _download(
         context,
         url,
         _archives_dir(context) / _safe_name(filename),
         f"{spec.name} {published}".strip(),
         user_agent=spec.user_agent or USER_AGENT,
-        use_cache=not bool(_custom_installer_url(context, spec)),
-        verify_cache=_permanent_installer(context, spec),
+        # A file kept under a name that carries no version ("...-latest.exe": the vendor's
+        # address stopped naming one) says nothing of what is inside: unless the server can
+        # vouch for it by its ETag, it is fetched anew every time.
+        use_cache=not bool(_custom_installer_url(context, spec)) and (bool(published) or permanent),
+        verify_cache=permanent,
     )
 
     work = _tmp_dir(context) / spec.folder
@@ -2287,12 +2732,19 @@ def _build_one(
     work.mkdir(parents=True, exist_ok=True)
 
     _check_cancelled(context, f"{spec.name} was unpacked")
-    payload = _unpack_browser(context, spec, asset.path)
+    try:
+        payload = _unpack_browser(context, spec, asset.path)
+    except RuntimeError:
+        # A file that does not open is not kept for the next run to trip over: it was taken
+        # from the cache under its name alone, every time, until somebody deleted it by hand.
+        _forget_download(context, asset.path)
+        raise
+    _prune_archives(context, spec, asset.path)
     app_dir = work / "App"
     app_dir.mkdir(parents=True, exist_ok=True)
     _check_cancelled(context, f"{spec.name} was assembled")
     context.log(f"[COPY] {payload.name} -> App")
-    _copy_tree_contents(payload, app_dir)
+    _copy_tree_contents(context, payload, app_dir, f"{spec.name} was assembled")
     if not (app_dir / spec.executable).exists():
         raise RuntimeError(f"{spec.name}: {spec.executable} is missing from App after the copy.")
     removed_updaters = _disable_yandex_updater(context, spec, work)
@@ -2312,6 +2764,17 @@ def _build_one(
         archive=plus_archive,
         wipe_registry=wipe_registry,
     )
+    # A build of ours that is updated keeps the settings of its library. One brought from
+    # elsewhere does not: its wrapper goes with its old browser, and the new one comes whole.
+    if keep_data_from is not None and adopt is None:
+        _keep_library_settings(context, spec, keep_data_from, work, engine, wipe_registry)
+
+    # The certificate files are fetched here, into the work folder, while a stop or a server
+    # that does not answer still costs nothing. They used to be fetched after the browser had
+    # been swapped: the build was new by then, the run said "failed" or "nothing updated", the
+    # note of the build kept the old version - and the next run passed the build by as current.
+    kept_certificates = _long(keep_data_from) / CERTIFICATES_DIRECTORY if keep_data_from is not None else None
+    certificates = stage_certificates(context, work, kept_certificates) if with_certificates else {}
 
     # Everything so far happened in the work folder. From here on somebody's build
     # is changed, so this is where a cancel still costs nothing.
@@ -2326,6 +2789,13 @@ def _build_one(
             # A build made elsewhere is rearranged only now, with the new App
             # already beside it: a failed download leaves it as it was brought in.
             if adopt is not None:
+                # Asked once more: the question before the download is minutes old, and the
+                # browser of a build from elsewhere does not lie where the copy above looked.
+                if adoption.in_use(adopt.layout.browser_dir / spec.executable):
+                    raise RuntimeError(
+                        f"{spec.name}: the browser was started while the new one was being fetched. "
+                        "The build is as it was. Close the browser and run the update again."
+                    )
                 fresh = [item.name for item in incoming.iterdir()]
                 keep_data_from = _adopt_build(context, spec, adopt.layout, adopt.alone, fresh)
             # Update: the freshly assembled App takes the place of the old one, and
@@ -2343,8 +2813,11 @@ def _build_one(
     else:
         home = work
 
+    # Past the swap nothing waits for the network and nothing looks for a stop: the browser
+    # in the build is the new one, and what is written here only says so.
     _write_launcher(context, spec, home)
-    certificates = stage_certificates(context, home) if with_certificates else {}
+    if certificates and keep_data_from is not None:
+        _put_certificates(context, spec, work / CERTIFICATES_DIRECTORY, keep_data_from)
     _write_build_stamp(
         context,
         spec,
@@ -2356,13 +2829,16 @@ def _build_one(
             "installer_etag": asset.etag,
             "portable_engine": engine,
             "chrome_plus_release": plus_version,
-            "certificates_staged": bool(with_certificates),
+            # What lies in the build, not what was ticked: files put there by an earlier run stay.
+            "certificates_staged": _certificates_in(home),
             "yandex_updater_disabled": bool(spec.id == "yandex" and _param_bool(context, "disable_yandex_updater", True)),
         },
     )
     version, plus_in_build = build_versions(spec, home)
     if keep_data_from is not None:
-        artifact = _archive_build(context, home, archive_name or spec.folder) if package_archive else home
+        # The archive of a build somebody uses is the build as it is handed over: without the profile.
+        artifact = (_archive_build(context, home, archive_name or spec.folder, _handover_parts(spec, home))
+                    if package_archive else home)
     else:
         artifact = _archive_build(context, work, spec.folder) if package_archive else _publish(context, work, spec.folder)
     # Only a folder can lie too deep; an archive is unpacked wherever it is taken.
@@ -2491,7 +2967,7 @@ def update_selected(context: JobContext) -> dict[str, object]:
 
     # version.dll lands in the workspace (under output) and in each build being
     # updated, which lives under input or output. Excluding both roots covers
-    # every place _existing_build can point at. No-op where Defender is not running.
+    # every place a build can be found in. No-op where Defender is not running.
     guard = (
         _defender_guard(context, [_output_root(context), _input_root(context)])
         if guard_defender
@@ -2557,6 +3033,17 @@ def update_selected(context: JobContext) -> dict[str, object]:
                         and not _custom_installer_url(context, spec)
                     ):
                         removed_updaters = _disable_yandex_updater(context, spec, build)
+                        if with_certificates and not _certificates_in(build):
+                            # Ticked, and the build is current: the files still go in - a build
+                            # passed by as current never got them otherwise.
+                            try:
+                                for name in [str(entry["name"]) for entry in RUSSIAN_TRUSTED_CERTIFICATES]:
+                                    _managed_build_file(build, f"{CERTIFICATES_DIRECTORY}/{name}")
+                                stage_certificates(context, build)
+                            except OperationCancelled:
+                                raise
+                            except Exception as exc:  # noqa: BLE001 - the build is current either way
+                                context.log(f"[WARN] {label}: the certificate files were not put into the build ({exc}).")
                         context.log(
                             f"[SKIP] {label}: {current} is current, wrapper {current_plus or '-'} too."
                             + (f" {published} is on the list, but the installer still carries {current}." if ahead else "")
@@ -2607,11 +3094,13 @@ def update_selected(context: JobContext) -> dict[str, object]:
         finally:
             if not keep_temp:
                 _discard_tmp(context)
-    if automatic and not found:
-        # Nothing was ticked and nothing was found: a green "finished" here would
-        # read as "updated", which is exactly what did not happen.
+    if not found:
+        # Nothing was found - whether nothing was ticked or what was ticked has no build: a
+        # green "finished" here would read as "updated", which is exactly what did not happen.
+        # (A browser ticked beside others that do have builds is passed by with a line, as before.)
+        asked = "" if automatic else " of " + ", ".join(spec.name for spec in specs)
         raise RuntimeError(
-            f"No portable build was found in {_input_root(context)} or in {_portable_root(context)}. "
+            f"No portable build{asked} was found in {_input_root(context)} or in {_portable_root(context)}. "
             "A build is a folder holding the browser; put it into the Source in a folder of its own."
         )
     if failed and not updated and not any(item["reason"] == "already current" for item in skipped):
@@ -2624,25 +3113,24 @@ def stage_certificates_selected(context: JobContext) -> dict[str, object]:
     key = "certificate_browsers" if "certificate_browsers" in context.operation.parameters else "browsers"
     specs = _selected_specs(context, key)
     staged: list[dict[str, object]] = []
-    skipped: list[dict[str, str]] = []
     failed: list[dict[str, str]] = []
-    for index, spec in enumerate(specs, start=1):
+    found, skipped = _builds_of_ticked(context, specs)
+    for index, item in enumerate(found, start=1):
+        spec, build, label = item.spec, item.home, item.label
         try:
-            build = _existing_build(context, spec)
-            if build is None:
-                context.log(f"[SKIP] {spec.name}: no existing build.")
-                skipped.append({"browser": spec.name, "reason": "no build"})
-                continue
-            if context.cancelled():
-                raise RuntimeError("Certificate download cancelled.")
+            _check_cancelled(context, f"certificate files were put into the build of {label}")
             for name in [str(item["name"]) for item in RUSSIAN_TRUSTED_CERTIFICATES] + ["Install-Russian-Trusted-CA.cmd", "Uninstall-Russian-Trusted-CA.cmd"]:
                 _managed_build_file(build, f"{CERTIFICATES_DIRECTORY}/{name}")
             staged.append({"browser": spec.name, "build": str(build), **stage_certificates(context, build)})
+        except OperationCancelled as exc:
+            # A stop is not one browser that failed: the batch does not go on to the next.
+            done = ", ".join(str(item["browser"]) for item in staged) or "nothing"
+            raise OperationCancelled(f"{exc} Done before that: {done}.") from None
         except Exception as exc:  # noqa: BLE001 - a failed source/build need not stop the batch
-            context.log(f"[FAIL] {spec.name}: {exc}")
-            failed.append({"browser": spec.name, "error": str(exc)})
+            context.log(f"[FAIL] {label}: {exc}")
+            failed.append({"browser": spec.name, "folder": build.name, "error": str(exc)})
         finally:
-            context.progress(index / len(specs))
+            context.progress(index / len(found))
     if not staged:
         raise RuntimeError("; ".join(item["error"] for item in failed) or "No existing builds found. Select the build or its parent as Source.")
     return {"staged": staged, "skipped": skipped, "failed": failed}
@@ -2651,6 +3139,6 @@ def stage_certificates_selected(context: JobContext) -> dict[str, object]:
 def browser_options(root: Path | None = None) -> list[dict[str, str]]:
     """Checkbox options for the manifest, straight from the registry."""
     return [
-        {"value": spec.id, "label": spec.name, "label_ru": spec.name}
+        {"value": spec.id, "label": spec.name, "label_ru": spec.name, "icon": spec.icon, "tone": spec.tone}
         for spec in BROWSERS
     ]

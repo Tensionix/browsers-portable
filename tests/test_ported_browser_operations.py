@@ -339,13 +339,27 @@ def test_invalid_custom_update_fails_without_changing_the_build(tmp_path, monkey
     assert snapshot(build) == before
 
 
+def certificates_of_the_check(monkeypatch) -> dict[str, bytes]:
+    """Certificates of the check's own, by their addresses: the service is told to expect their thumbprints."""
+    import hashlib
+
+    bodies, items = {}, []
+    for item in service.RUSSIAN_TRUSTED_CERTIFICATES:
+        body = b"\x30\x82" + str(item["name"]).encode()
+        bodies[str(item["url"])] = body
+        items.append({**item, "thumbprint": hashlib.sha1(body).hexdigest().upper()})
+    monkeypatch.setattr(service, "RUSSIAN_TRUSTED_CERTIFICATES", tuple(items))
+    return bodies
+
+
 def test_certificate_staging_adds_files_without_changing_windows_or_the_build(tmp_path, monkeypatch):
     ctx = context(tmp_path, browsers=["brave"], certificate_browsers=["chrome"])
     build = existing(ctx)
     before = snapshot(build)
-    def download(_ctx, url, target, label):
+    bodies = certificates_of_the_check(monkeypatch)
+    def download(_ctx, url, target, label, **_options):
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(b"certificate fixture")
+        target.write_bytes(bodies[url])
         return service.DownloadedAsset(label, url, target, "", target.stat().st_size)
     monkeypatch.setattr(service, "_download", download)
     monkeypatch.setattr(service.subprocess, "run", lambda *_a, **_k: pytest.fail("certificate staging must not run certutil"))

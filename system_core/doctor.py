@@ -5,28 +5,25 @@ from typing import Any
 import importlib
 import os
 import platform
-import shutil
 import sys
 
+# What the engine imports besides the standard library. The former window (NiceGUI in a pywebview
+# frame, gone with 2.0.0) needed a dozen more; the window on Avalonia needs no Python package.
 REQUIRED_MODULES = [
-    ("tqdm", "tqdm"),
-    ("rich", "rich"),
-    ("pydantic", "pydantic"),
-    ("nicegui", "nicegui"),
-    ("webview", "pywebview"),
     ("yaml", "pyyaml"),
-    ("markdown_it", "markdown-it-py"),
 ]
 
-OPTIONAL_MODULES = [
-    ("requests", "requests"),
-    ("docx", "python-docx"),
-    ("openai", "openai"),
-    ("google.genai", "google-genai"),
-    ("pandas", "pandas"),
-    ("openpyxl", "openpyxl"),
-    ("fitz", "pymupdf"),
-    ("pptx", "python-pptx"),
+# Files of the program an operation cannot do without. The second word says what to do about a
+# missing one; "required" fails the check, anything else is a note.
+PROGRAM_PARTS = [
+    ("defender guard", "system_core/services/defender_guard.ps1", "required",
+     "the script the Defender guard starts through UAC"),
+    ("portable 7-Zip", "tools/7zip/bin/7za.exe", "step 06 of builder_main.cmd, or Service -> Install 7-Zip in the window",
+     "unpacks the installers of the browsers"),
+    ("the window", "App/AudionBrowsersPortable.exe", "install\\Build-App.cmd builds it from Source\\",
+     "Start.exe opens it"),
+    ("own PowerShell", "App/AudionPs.exe", "install\\Build-App.cmd builds it from Source\\Ps",
+     "runs the scripts of the builder"),
 ]
 
 
@@ -91,25 +88,19 @@ def detect_python_mode(root: Path) -> str:
     return "system-python"
 
 
-def check_picker_powershell(root: Path) -> tuple[bool, list[tuple[str, bool, str]]]:
-    candidates = [
-        ("portable pwsh", root / "system_core" / "powershell" / "pwsh.exe"),
-        ("PATH pwsh", "pwsh.exe"),
-        ("Windows PowerShell", "powershell.exe"),
-    ]
-    rows: list[tuple[str, bool, str]] = []
-    any_ok = False
-    for label, candidate in candidates:
-        if isinstance(candidate, Path):
-            ok = candidate.exists()
-            detail = str(candidate)
+def check_program_parts(root: Path) -> tuple[bool, list[tuple[str, str, str]]]:
+    """The files of PROGRAM_PARTS: (all the required ones are there, [(label, status, detail), ...])."""
+    rows: list[tuple[str, str, str]] = []
+    all_ok = True
+    for label, relative, remedy, purpose in PROGRAM_PARTS:
+        if (root / relative).is_file():
+            rows.append((label, "OK", f"{relative} - {purpose}"))
+        elif remedy == "required":
+            rows.append((label, "FAIL", f"{relative} is missing - {purpose}"))
+            all_ok = False
         else:
-            resolved = shutil.which(candidate)
-            ok = bool(resolved)
-            detail = resolved or "not found"
-        rows.append((label, ok, detail))
-        any_ok = any_ok or ok
-    return any_ok, rows
+            rows.append((label, "MISS", f"{relative} is missing: {remedy}"))
+    return all_ok, rows
 
 
 def check_manifest_operations(root: Path) -> tuple[bool, list[tuple[str, str, str]]]:
@@ -246,37 +237,11 @@ def check_sh_lf(root: Path) -> tuple[bool, list[tuple[str, bool, str]]]:
     return all_ok, rows
 
 
-def check_gui_theme_catalog(root: Path) -> tuple[bool, list[tuple[str, bool, str]]]:
-    if str(root) not in sys.path:
-        sys.path.insert(0, str(root))
-
-    try:
-        from system_core.core.config import load_yaml_or_json  # noqa: WPS433
-        from system_core.core.ui_theme_catalog import validate_theme_catalog  # noqa: WPS433
-    except Exception as exc:
-        return False, [("(loader)", False, f"{exc.__class__.__name__}: {exc}")]
-
-    try:
-        data = load_yaml_or_json(root / "config" / "ui_colors.yaml")
-    except Exception as exc:
-        return False, [("catalog", False, f"{exc.__class__.__name__}: {exc}")]
-
-    result = validate_theme_catalog(data)
-    if not result.ok:
-        return False, [("catalog", False, error) for error in result.errors]
-
-    rows = [
-        ("theme order", True, f"core prefix OK; {len(result.theme_ids)} theme(s)"),
-        ("extension themes", True, ", ".join(result.extra_theme_ids) or "none"),
-    ]
-    return True, rows
-
-
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
 
     print(color("======================================================================", "36;1"))
-    print(color("AUDION PYTHON GUI PORTABLE TEMPLATE - DOCTOR", "36;1"))
+    print(color("AUDION BROWSERS PORTABLE - DOCTOR", "36;1"))
     print(color("======================================================================", "36;1"))
     info_row("Project root", root)
     info_row("Executable", sys.executable)
@@ -296,32 +261,12 @@ def main() -> int:
             failed = True
 
     print()
-    section_title("GUI portability")
-    picker_ok, picker_rows = check_picker_powershell(root)
-    for label, ok, detail in picker_rows:
-        status = "OK" if ok else "MISS"
+    section_title("Program parts")
+    parts_ok, part_rows = check_program_parts(root)
+    for label, status, detail in part_rows:
         print(f"  - {label:<18} : {status_label(status)} {detail}")
-    if not picker_ok:
-        print(f"  - picker dialogs     : {status_label('FAIL')} PowerShell was not found")
+    if not parts_ok:
         failed = True
-    else:
-        print(f"  - picker dialogs     : {status_label('OK')} PowerShell-backed Windows dialogs available")
-
-    print()
-    section_title("GUI themes")
-    themes_ok, theme_rows = check_gui_theme_catalog(root)
-    for label, ok, detail in theme_rows:
-        status = "OK" if ok else "FAIL"
-        print(f"  - {label:<18} : {status_label(status)} {detail}")
-    if not themes_ok:
-        failed = True
-
-    print()
-    section_title("Optional modules")
-    for import_name, package_name in OPTIONAL_MODULES:
-        ok, detail = check_module(import_name)
-        status = "OK" if ok else "MISS"
-        print(f"  - {package_name:<18} : {status_label(status)} {detail}")
 
     print()
     section_title("Manifest operations")

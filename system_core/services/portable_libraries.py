@@ -19,6 +19,8 @@ REPOSITORIES = {"chrome_plus": "DeftKing/chrome_plus", "vivaldi_plus": "ca-x/viv
 LABELS = {"proxy_library": "Proxy library", "chrome_plus": "Chrome++ (DeftKing)", "vivaldi_plus": "Vivaldi++"}
 MACHINES = {0x014C: "x86", 0x8664: "x64", 0xAA64: "arm64"}
 PROXY_DLLS = {"x86": "version x32.dll", "x64": "version x64.dll"}
+# The settings file each library reads beside the browser.
+CONFIG_FILES = {"chrome_plus": "chrome++.ini", "proxy_library": "version.ini", "vivaldi_plus": "config.ini"}
 PROXY_INI = """\
 ; Written by Audion Portable. Optional switches are disabled.
 [Parameters]
@@ -257,11 +259,15 @@ def installed_engine(build: Path) -> str:
 
 
 def needs_refresh(build: Path, engine: str) -> bool:
+    """Whether the library has to be put into the build anew: another one is there, or its settings file is gone.
+
+    A settings file that was edited is no reason. It used to be one for the proxy library - any
+    difference from the file this program writes counted - so a switch a person turned on by
+    hand (the very edit the comment beside that file invites) made Check say "wrapper update
+    available" for good, and the next Update downloaded the browser again to put the file back.
+    The settings of a library are the person's: see `_keep_library_settings` in the service.
+    """
     if installed_engine(build) != engine:
         return True
-    if engine == "proxy_library":
-        try:
-            return (build / "App" / "version.ini").read_bytes() != PROXY_INI.replace("\n", "\r\n").encode("ascii")
-        except OSError:
-            return True
-    return False
+    # The proxy library does nothing portable without its file: the paths of Data and Cache are in it.
+    return engine == "proxy_library" and not (build / "App" / CONFIG_FILES[engine]).is_file()

@@ -108,11 +108,11 @@ def test_the_work_folder_is_handed_out_in_the_long_form(tmp_path: Path) -> None:
 # --- working past the limit -----------------------------------------------------
 
 
-def test_a_tree_past_the_limit_is_copied_and_removed(deep: Path) -> None:
+def test_a_tree_past_the_limit_is_copied_and_removed(deep: Path, tmp_path: Path) -> None:
     _write(deep / "payload" / "chrome.exe", b"browser")
     _write(deep / "payload" / "154.0.8037.98" / "Locales" / "ru.pak", b"locale")
 
-    service._copy_tree_contents(deep / "payload", deep / "App")
+    service._copy_tree_contents(_context(tmp_path), deep / "payload", deep / "App", "the browser was copied")
 
     assert service._long(deep / "App" / "chrome.exe").read_bytes() == b"browser"
     assert service._long(deep / "App" / "154.0.8037.98" / "Locales" / "ru.pak").read_bytes() == b"locale"

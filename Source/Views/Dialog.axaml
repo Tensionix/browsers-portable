@@ -1,0 +1,34 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AudionBrowsersPortable.Views.Dialog"
+        Title="Audion Browsers Portable"
+        Width="580" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False" ShowInTaskbar="False"
+        Icon="/Assets/app.ico"
+        Background="{DynamicResource AppBg}"
+        Foreground="{DynamicResource TextMain}"
+        FontFamily="{DynamicResource FontUi}" FontSize="13">
+
+    <!-- The confirmation of Sync Tools: a head, plain lines that say everything
+         that decides the outcome, an optional name field, and two buttons -
+         the right one wears the tone of what it does. -->
+    <Border x:Name="Frame" Background="{DynamicResource PanelBg}" BorderBrush="{DynamicResource BorderSoft}"
+            BorderThickness="1" CornerRadius="8" Margin="10" Padding="18,15">
+        <StackPanel>
+            <TextBlock x:Name="Head" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,12"/>
+            <!-- The warning lives in one badge, not in the whole window: a mirror
+                 is an everyday operation, not an alarm. -->
+            <Border x:Name="Badge" IsVisible="False" Background="#2ecc5500" BorderBrush="#cc5500" BorderThickness="1"
+                    CornerRadius="6" Padding="10,5" Margin="0,0,0,10" HorizontalAlignment="Left">
+                <TextBlock x:Name="BadgeText" Foreground="#ff9a55" FontWeight="SemiBold" TextWrapping="Wrap"/>
+            </Border>
+            <StackPanel x:Name="Lines"/>
+            <TextBox x:Name="Input" IsVisible="False" Margin="0,12,0,0" Classes="masks"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                <Button x:Name="CancelButton" Content="ОТМЕНА" MinWidth="118" MinHeight="30" Margin="0,0,9,0" IsCancel="True"/>
+                <Button x:Name="OkButton" Content="ДА" MinWidth="118" MinHeight="30" Margin="0" IsDefault="True"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

@@ -54,6 +54,19 @@ class BrowserSpec:
     # belong to one browser each and need no second proof (they say `Yandex` and
     # `Brave Browser`, read on 4 October 2026).
     product_name: str = ""
+    # What the executable calls itself when that name is shared by several entries and so
+    # cannot tell them apart - but does tell them from everybody else. Chromium-Gost and
+    # Ungoogled Chromium both say `Chromium`; a `chrome.exe` that says `Cent Browser`,
+    # `Supermium` or `Iron` is neither, whatever is ticked: without this a single Chromium
+    # tick took any `chrome.exe` that was not Google's and replaced that browser with
+    # another one over its profile.
+    family_product: str = ""
+    # The face of the browser on its button in the window: the name of its mark in the
+    # owner's icon sets (Simple Icons, Devicons) and the colour of its logo. Both
+    # Chromium builds wear the Chromium mark - the shape of Chrome's - in a tone of
+    # their own, since nothing else tells them apart at a glance.
+    icon: str = ""
+    tone: str = ""
 
 
 # The Windows user agent Yandex insists on; with anything else its download
@@ -78,6 +91,8 @@ BROWSERS: tuple[BrowserSpec, ...] = (
         payload_directory="Chrome-bin",
         registry_branch=r"HKCU\Software\Google\Chrome",
         product_name="Google Chrome",
+        icon="googlechrome",
+        tone="#4285F4",
     ),
     BrowserSpec(
         id="yandex",
@@ -92,6 +107,8 @@ BROWSERS: tuple[BrowserSpec, ...] = (
         payload_directory="Browser-bin",
         registry_branch=r"HKCU\Software\Yandex\YandexBrowser",
         user_agent=WINDOWS_USER_AGENT,
+        icon="yandex",
+        tone="#FC3F1D",
     ),
     BrowserSpec(
         id="brave",
@@ -110,6 +127,8 @@ BROWSERS: tuple[BrowserSpec, ...] = (
         asset=r"brave-v[\d.]+-win32-x64\.zip",
         version_match="tail",
         registry_branch=r"HKCU\Software\BraveSoftware\Brave-Browser",
+        icon="brave",
+        tone="#FB542B",
     ),
     BrowserSpec(
         id="chromium_gost",
@@ -122,6 +141,9 @@ BROWSERS: tuple[BrowserSpec, ...] = (
         repo="deemru/chromium-gost",
         asset=r"chromium-gost-[\d.]+-windows-amd64\.zip",
         registry_branch=r"HKCU\Software\Chromium",
+        family_product="Chromium",
+        icon="googlechrome",
+        tone="#7EA6C9",
     ),
     BrowserSpec(
         id="ungoogled_chromium",
@@ -134,6 +156,9 @@ BROWSERS: tuple[BrowserSpec, ...] = (
         repo="ungoogled-software/ungoogled-chromium-windows",
         asset=r"ungoogled-chromium_[\d.\-]+_windows_x64\.zip",
         registry_branch=r"HKCU\Software\Chromium",
+        family_product="Chromium",
+        icon="googlechrome",
+        tone="#9AA0A6",
     ),
 )
 

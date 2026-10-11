@@ -5,15 +5,17 @@ setlocal EnableExtensions
 set "PS_EXE="
 set "PS1_FILE=%~dpn0.ps1"
 
-if exist "%~dp0..\system_core\powershell\pwsh.exe" set "PS_EXE=%~dp0..\system_core\powershell\pwsh.exe"
+rem The PowerShell the program carries comes first: App\ stays through a cleanup,
+rem so a build runs on the same PowerShell on every machine.
+if exist "%~dp0..\App\AudionPs.exe" set "PS_EXE=%~dp0..\App\AudionPs.exe"
 if not defined PS_EXE where pwsh.exe >nul 2>nul && set "PS_EXE=pwsh.exe"
 if not defined PS_EXE where powershell.exe >nul 2>nul && set "PS_EXE=powershell.exe"
 
 if not defined PS_EXE (
     echo [ERROR] PowerShell was not found.
-    echo [INFO] Expected portable path:
-    echo %~dp0..\system_core\powershell\pwsh.exe
-    pause
+    echo [INFO] The program carries its own - is App\ in place?
+    echo %~dp0..\App\AudionPs.exe
+    if not defined AUDION_NO_PAUSE pause
     exit /b 1
 )
 
@@ -27,5 +29,5 @@ if "%RC%"=="0" (
     echo [ERROR] Build_Portable_Env.ps1 finished with exit code %RC%.
 )
 
-pause
+if not defined AUDION_NO_PAUSE pause
 exit /b %RC%

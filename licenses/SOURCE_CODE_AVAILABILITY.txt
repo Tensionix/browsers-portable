@@ -9,40 +9,538 @@ record and does not replace review of the applicable license terms.
 BUNDLED COMPONENTS WITH SOURCE REFERENCES
 --------------------------------------------------------------------------------
 Component: 7-Zip
-Version/profile: 26.3.0
+Version/profile: 26.4.0
 Method: upstream_pin
-version: 26.3.0
+version: 26.4.0
 url: https://www.7-zip.org/download.html
 
-Component: bidict
-Version/profile: 0.24.1
+Component: Avalonia
+Version/profile: 12.1.3
 Method: upstream_pin
-version: 0.24.1
-url: https://pypi.org/project/bidict/0.24.1/
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
 
-Component: certifi
-Version/profile: 2026.7.22
+Component: Avalonia.Angle.Windows.Natives
+Version/profile: 2.1.27548.20260419
 Method: upstream_pin
-version: 2026.7.22
-url: https://pypi.org/project/certifi/2026.7.22/
+version: 2.1.27548.20260419
+url: https://github.com/AvaloniaUI/angle/
 
-Component: docutils
-Version/profile: 0.23
+Component: Avalonia.Desktop
+Version/profile: 12.1.3
 Method: upstream_pin
-version: 0.23
-url: https://pypi.org/project/docutils/0.23/
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
 
-Component: orjson
-Version/profile: 3.12.0
+Component: Avalonia.Fonts.Inter
+Version/profile: 12.1.3
 Method: upstream_pin
-version: 3.12.0
-url: https://pypi.org/project/orjson/3.12.0/
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
 
-Component: tqdm
-Version/profile: 4.70.1
+Component: Avalonia.FreeDesktop
+Version/profile: 12.1.3
 Method: upstream_pin
-version: 4.70.1
-url: https://pypi.org/project/tqdm/4.70.1/
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
+
+Component: Avalonia.FreeDesktop.AtSpi
+Version/profile: 12.1.3
+Method: upstream_pin
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
+
+Component: Avalonia.HarfBuzz
+Version/profile: 12.1.3
+Method: upstream_pin
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
+
+Component: Avalonia.Native
+Version/profile: 12.1.3
+Method: upstream_pin
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
+
+Component: Avalonia.Remote.Protocol
+Version/profile: 12.1.3
+Method: upstream_pin
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
+
+Component: Avalonia.Skia
+Version/profile: 12.1.3
+Method: upstream_pin
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
+
+Component: Avalonia.Themes.Fluent
+Version/profile: 12.1.3
+Method: upstream_pin
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
+
+Component: Avalonia.Win32
+Version/profile: 12.1.3
+Method: upstream_pin
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
+
+Component: Avalonia.X11
+Version/profile: 12.1.3
+Method: upstream_pin
+version: 12.1.3
+url: https://github.com/AvaloniaUI/Avalonia/
+
+Component: HarfBuzzSharp
+Version/profile: 8.3.1.3
+Method: upstream_pin
+version: 8.3.1.3
+url: https://go.microsoft.com/fwlink/?linkid=868515
+
+Component: HarfBuzzSharp.NativeAssets.Win32
+Version/profile: 8.3.1.3
+Method: upstream_pin
+version: 8.3.1.3
+url: https://go.microsoft.com/fwlink/?linkid=868515
+
+Component: Humanizer.Core
+Version/profile: 2.14.1
+Method: upstream_pin
+version: 2.14.1
+url: https://github.com/Humanizr/Humanizer
+
+Component: Inter
+Version/profile: 3.019
+Method: upstream
+version: 3.019
+url: https://github.com/rsms/inter
+
+Component: JetBrains Mono
+Version/profile: 2.211
+Method: upstream
+version: 2.211
+url: https://github.com/JetBrains/JetBrainsMono
+
+Component: Json.More.Net
+Version/profile: 2.1.1
+Method: upstream_pin
+version: 2.1.1
+url: https://github.com/json-everything/json-everything
+
+Component: JsonPointer.Net
+Version/profile: 5.3.1
+Method: upstream_pin
+version: 5.3.1
+url: https://github.com/json-everything/json-everything
+
+Component: JsonSchema.Net
+Version/profile: 7.4.0
+Method: upstream_pin
+version: 7.4.0
+url: https://github.com/json-everything/json-everything
+
+Component: Lucide
+Version/profile: 1.48.0
+Method: upstream
+version: 1.48.0
+url: https://github.com/lucide-icons/lucide
+
+Component: Markdig.Signed
+Version/profile: 0.44.0
+Method: upstream_pin
+version: 0.44.0
+url: https://github.com/xoofx/markdig
+
+Component: MicroCom.Runtime
+Version/profile: 0.11.6
+Method: upstream_pin
+version: 0.11.6
+url: https://github.com/kekekeks/MicroCom
+
+Component: Microsoft.ApplicationInsights
+Version/profile: 2.23.0
+Method: upstream_pin
+version: 2.23.0
+url: https://github.com/Microsoft/ApplicationInsights-dotnet
+
+Component: Microsoft.Bcl.AsyncInterfaces
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: Microsoft.CodeAnalysis.Common
+Version/profile: 5.0.0
+Method: upstream_pin
+version: 5.0.0
+url: https://github.com/dotnet/roslyn
+
+Component: Microsoft.CodeAnalysis.CSharp
+Version/profile: 5.0.0
+Method: upstream_pin
+version: 5.0.0
+url: https://github.com/dotnet/roslyn
+
+Component: Microsoft.Extensions.ObjectPool
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: Microsoft.Management.Infrastructure
+Version/profile: 3.0.0
+Method: upstream_pin
+version: 3.0.0
+url: https://github.com/PowerShell/MMI
+
+Component: Microsoft.Management.Infrastructure.CimCmdlets
+Version/profile: 7.6.6
+Method: upstream_pin
+version: 7.6.6
+url: https://github.com/PowerShell/PowerShell
+
+Component: Microsoft.Management.Infrastructure.Runtime.Win
+Version/profile: 3.0.0
+Method: upstream_pin
+version: 3.0.0
+url: https://github.com/PowerShell/MMI
+
+Component: Microsoft.NETCore.App.Runtime.win-x64
+Version/profile: 10.0.12
+Method: upstream_pin
+version: 10.0.12
+url: https://github.com/dotnet/dotnet
+
+Component: Microsoft.PowerShell.Commands.Diagnostics
+Version/profile: 7.6.6
+Method: upstream_pin
+version: 7.6.6
+url: https://github.com/PowerShell/PowerShell
+
+Component: Microsoft.PowerShell.Commands.Management
+Version/profile: 7.6.6
+Method: upstream_pin
+version: 7.6.6
+url: https://github.com/PowerShell/PowerShell
+
+Component: Microsoft.PowerShell.Commands.Utility
+Version/profile: 7.6.6
+Method: upstream_pin
+version: 7.6.6
+url: https://github.com/PowerShell/PowerShell
+
+Component: Microsoft.PowerShell.ConsoleHost
+Version/profile: 7.6.6
+Method: upstream_pin
+version: 7.6.6
+url: https://github.com/PowerShell/PowerShell
+
+Component: Microsoft.PowerShell.CoreCLR.Eventing
+Version/profile: 7.6.6
+Method: upstream_pin
+version: 7.6.6
+url: https://github.com/PowerShell/PowerShell
+
+Component: Microsoft.PowerShell.MarkdownRender
+Version/profile: 7.2.1
+Method: upstream_pin
+version: 7.2.1
+url: https://github.com/PowerShell/MarkdownRender
+
+Component: Microsoft.PowerShell.Native
+Version/profile: 700.0.0
+Method: upstream_pin
+version: 700.0.0
+url: https://github.com/PowerShell/PowerShell-Native
+
+Component: Microsoft.PowerShell.SDK
+Version/profile: 7.6.6
+Method: upstream_pin
+version: 7.6.6
+url: https://github.com/PowerShell/PowerShell
+
+Component: Microsoft.PowerShell.Security
+Version/profile: 7.6.6
+Method: upstream_pin
+version: 7.6.6
+url: https://github.com/PowerShell/PowerShell
+
+Component: Microsoft.Security.Extensions
+Version/profile: 1.4.0
+Method: upstream_pin
+version: 1.4.0
+url: https://aka.ms/getfilesiginforedist
+
+Component: Microsoft.Win32.Registry.AccessControl
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: Microsoft.Win32.SystemEvents
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: Microsoft.Windows.Compatibility
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: Microsoft.WSMan.Management
+Version/profile: 7.6.6
+Method: upstream_pin
+version: 7.6.6
+url: https://github.com/PowerShell/PowerShell
+
+Component: Microsoft.WSMan.Runtime
+Version/profile: 7.6.6
+Method: upstream_pin
+version: 7.6.6
+url: https://github.com/PowerShell/PowerShell
+
+Component: Newtonsoft.Json
+Version/profile: 13.0.4
+Method: upstream_pin
+version: 13.0.4
+url: https://github.com/JamesNK/Newtonsoft.Json
+
+Component: runtime.native.System.Data.SqlClient.sni
+Version/profile: 4.4.0
+Method: upstream_pin
+version: 4.4.0
+url: https://dot.net/
+
+Component: runtime.win-x64.runtime.native.System.Data.SqlClient.sni
+Version/profile: 4.4.0
+Method: upstream_pin
+version: 4.4.0
+url: https://dot.net/
+
+Component: Simple Icons
+Version/profile: 16.32.0
+Method: upstream
+version: 16.32.0
+url: https://github.com/simple-icons/simple-icons
+
+Component: SkiaSharp
+Version/profile: 3.119.4
+Method: upstream_pin
+version: 3.119.4
+url: https://go.microsoft.com/fwlink/?linkid=868515
+
+Component: SkiaSharp.NativeAssets.Win32
+Version/profile: 3.119.4
+Method: upstream_pin
+version: 3.119.4
+url: https://go.microsoft.com/fwlink/?linkid=868515
+
+Component: System.CodeDom
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.ComponentModel.Composition
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.ComponentModel.Composition.Registration
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Configuration.ConfigurationManager
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Data.Odbc
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Data.OleDb
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Data.SqlClient
+Version/profile: 4.9.1
+Method: upstream_pin
+version: 4.9.1
+url: https://github.com/dotnet/maintenance-packages
+
+Component: System.Diagnostics.EventLog
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Diagnostics.PerformanceCounter
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.DirectoryServices
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.DirectoryServices.AccountManagement
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.DirectoryServices.Protocols
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Drawing.Common
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.IO.Packaging
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.IO.Ports
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Management
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Management.Automation
+Version/profile: 7.6.6
+Method: upstream_pin
+version: 7.6.6
+url: https://github.com/PowerShell/PowerShell
+
+Component: System.Net.Http.WinHttpHandler
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Reflection.Context
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Runtime.Caching
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Security.Cryptography.Pkcs
+Version/profile: 10.0.10
+Method: upstream_pin
+version: 10.0.10
+url: https://github.com/dotnet/dotnet
+
+Component: System.Security.Cryptography.ProtectedData
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Security.Cryptography.Xml
+Version/profile: 10.0.10
+Method: upstream_pin
+version: 10.0.10
+url: https://github.com/dotnet/dotnet
+
+Component: System.Security.Permissions
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.ServiceModel.Http
+Version/profile: 10.0.652802
+Method: upstream_pin
+version: 10.0.652802
+url: https://github.com/dotnet/wcf
+
+Component: System.ServiceModel.NetFramingBase
+Version/profile: 10.0.652802
+Method: upstream_pin
+version: 10.0.652802
+url: https://github.com/dotnet/wcf
+
+Component: System.ServiceModel.NetTcp
+Version/profile: 10.0.652802
+Method: upstream_pin
+version: 10.0.652802
+url: https://github.com/dotnet/wcf
+
+Component: System.ServiceModel.Primitives
+Version/profile: 10.0.652802
+Method: upstream_pin
+version: 10.0.652802
+url: https://github.com/dotnet/wcf
+
+Component: System.ServiceModel.Syndication
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.ServiceProcess.ServiceController
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Speech
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: System.Web.Services.Description
+Version/profile: 8.1.2
+Method: upstream_pin
+version: 8.1.2
+url: https://github.com/dotnet/wcf
+
+Component: System.Windows.Extensions
+Version/profile: 10.0.5
+Method: upstream_pin
+version: 10.0.5
+url: https://github.com/dotnet/dotnet
+
+Component: Tmds.DBus.Protocol
+Version/profile: 0.94.1
+Method: upstream_pin
+version: 0.94.1
+url: https://github.com/tmds/Tmds.DBus.git
 
 
 OPTIONAL RUNTIME COMPONENTS

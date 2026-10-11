@@ -18,7 +18,8 @@ import tempfile
 import zipfile
 import zlib
 
-from system_core.core.jobs import JobContext
+from system_core.core.jobs import JobContext, OperationCancelled, TransferNote
+from system_core.core.paths import expand_percent
 
 
 USER_AGENT = "Audion-Browsers-Portable/Ready-Downloads"
@@ -33,17 +34,22 @@ class ReadyBrowser:
     download_host: str
     architectures: tuple[str, ...]
     package_kind: str
+    # The face of the browser on its button in the window: the name of its mark in the
+    # owner's icon sets and the colour of its logo. Cent Browser is in none of the sets
+    # and goes with a plain sign and no colour.
+    icon: str = ""
+    tone: str = ""
 
 
 READY_BROWSERS = (
     ReadyBrowser("cent", "Cent Browser", "https://www.centbrowser.com/history.html",
-                 "static.centbrowser.com", ("x64", "x86"), "portable_sfx"),
+                 "static.centbrowser.com", ("x64", "x86"), "portable_sfx", icon="globe"),
     ReadyBrowser("vivaldi", "Vivaldi", "https://vivaldi.com/download/",
-                 "downloads.vivaldi.com", ("x64", "x86", "arm64"), "standalone_installer"),
+                 "downloads.vivaldi.com", ("x64", "x86", "arm64"), "standalone_installer", icon="vivaldi", tone="#EF3939"),
     ReadyBrowser("librewolf", "LibreWolf", "https://librewolf.net/installation/windows/",
-                 "dl.librewolf.net", ("x64", "arm64"), "portable_zip"),
+                 "dl.librewolf.net", ("x64", "arm64"), "portable_zip", icon="librewolf", tone="#00ACFF"),
     ReadyBrowser("duckduckgo", "DuckDuckGo", "https://duckduckgo.com/windows",
-                 "staticcdn.duckduckgo.com", ("x64",), "installer"),
+                 "staticcdn.duckduckgo.com", ("x64",), "installer", icon="duckduckgo", tone="#DE5833"),
 )
 READY_BY_ID = {browser.id: browser for browser in READY_BROWSERS}
 
@@ -59,8 +65,13 @@ class ReadyRelease:
     package_kind: str
 
 
-class DownloadCancelled(RuntimeError):
-    pass
+class DownloadCancelled(OperationCancelled):
+    """Stop was pressed while a file was coming down.
+
+    An `OperationCancelled`, so the runner reports a download that was stopped as not done and
+    without the traceback a failure gets - nothing failed. Not a `RuntimeError`: the batch below
+    answers those by going on to the next browser, and a stop must not be answered like that.
+    """
 
 
 class _Links(HTMLParser):
@@ -76,7 +87,8 @@ class _Links(HTMLParser):
 def browser_options(*_args, **_kwargs) -> list[dict[str, str]]:
     return [{"value": browser.id,
              "label": browser.name + (" (installer)" if browser.id == "duckduckgo" else ""),
-             "label_ru": browser.name + (" (установщик)" if browser.id == "duckduckgo" else "")}
+             "label_ru": browser.name + (" (установщик)" if browser.id == "duckduckgo" else ""),
+             "icon": browser.icon, "tone": browser.tone}
             for browser in READY_BROWSERS]
 
 
@@ -225,6 +237,20 @@ def download_release(context: JobContext, release: ReadyRelease, folder: Path,
     context.log(f"[URL] {release.url}")
     part: Path | None = None
     meta_part: Path | None = None
+    # What a run that was ended hard left of this very file: its draft has a random name, so
+    # no later run wrote over it, and it lay beside the downloads for good. A draft somebody
+    # is still writing does not let itself be deleted, and stays.
+    try:
+        stale = [item for item in folder.iterdir()
+                 if item.is_file() and item.name.startswith(release.filename + ".") and item.name.endswith(".part")]
+    except OSError:
+        stale = []
+    for item in stale:
+        try:
+            item.unlink()
+            context.log(f"[CLEAN] An unfinished download of an earlier run was removed: {item.name}")
+        except OSError:
+            pass
     try:
         _check_cancelled(context)
         request = Request(release.url, headers={"User-Agent": USER_AGENT})
@@ -233,7 +259,8 @@ def download_release(context: JobContext, release: ReadyRelease, folder: Path,
             part = Path(destination.name)
             expected = int(response.headers.get("Content-Length") or 0)
             downloaded = 0
-            last_percent = -10
+            # A line of the log goes without the name - the line before it gave it; a pulse stands alone.
+            note = TransferNote(context, "", f"{READY_BY_ID[release.browser].name} {release.version}: ")
             while True:
                 _check_cancelled(context)
                 chunk = response.read(1024 * 1024)
@@ -244,10 +271,7 @@ def download_release(context: JobContext, release: ReadyRelease, folder: Path,
                 if expected:
                     fraction = min(1.0, downloaded / expected)
                     context.progress(progress_start + (progress_end - progress_start) * fraction)
-                    percent = int(fraction * 100)
-                    if percent >= last_percent + 10:
-                        context.log(f"[DOWNLOAD] {percent}% ({downloaded:,}/{expected:,} bytes)")
-                        last_percent = percent
+                    note.at(downloaded, expected)
             if not downloaded or (expected and downloaded != expected):
                 raise RuntimeError(f"Incomplete download: {downloaded} bytes; expected {expected or 'a nonempty file'}.")
         _check_cancelled(context)
@@ -301,7 +325,7 @@ def download_selected(context: JobContext) -> dict[str, object]:
     if architecture not in {"x64", "x86", "arm64"}:
         raise RuntimeError(f"Unknown Windows architecture: {architecture}")
     raw_output = str(context.operation.parameters.get("output_path", "") or "").strip().strip('"')
-    output = Path(os.path.expandvars(raw_output)).expanduser() if raw_output else context.paths.output
+    output = Path(expand_percent(raw_output)).expanduser() if raw_output else context.paths.output
     if not output.is_absolute():
         output = context.paths.root / output
     output = output.resolve() / "Browser Downloads"

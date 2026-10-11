@@ -2,7 +2,7 @@
 chcp 65001 >nul
 setlocal EnableExtensions
 
-title Audion Python Portable Template - Offline Install
+title Audion Browsers Portable - Offline Install
 
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
@@ -15,7 +15,7 @@ set "GET_PIP=%ROOT%\install\download\get-pip.py"
 set "CMD_ENCODING=%ROOT%\install\Check-CmdEncoding.cmd"
 
 echo ======================================================================
-echo   AUDION PYTHON PORTABLE TEMPLATE - OFFLINE INSTALL
+echo   AUDION BROWSERS PORTABLE - OFFLINE INSTALL
 echo ======================================================================
 echo Root:       %ROOT%
 echo Runtime:    %RUNTIME_DIR%

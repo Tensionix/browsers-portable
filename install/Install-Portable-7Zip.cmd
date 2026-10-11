@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-title Audion Get - Install Portable 7-Zip
+title Audion Browsers Portable - Install Portable 7-Zip
 
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
@@ -21,7 +21,8 @@ if /I "%~1"=="/NOPAUSE" set "NO_PAUSE=1"
 if /I "%~1"=="--no-pause" set "NO_PAUSE=1"
 if /I "%AUDION_NO_PAUSE%"=="1" set "NO_PAUSE=1"
 
-if exist "%ROOT%\system_core\powershell\pwsh.exe" set "PS_EXE=%ROOT%\system_core\powershell\pwsh.exe"
+rem The PowerShell the program carries comes first; the one of the machine - where App\ is not built yet.
+if exist "%ROOT%\App\AudionPs.exe" set "PS_EXE=%ROOT%\App\AudionPs.exe"
 if not defined PS_EXE where pwsh.exe >nul 2>nul && set "PS_EXE=pwsh.exe"
 if not defined PS_EXE where powershell.exe >nul 2>nul && set "PS_EXE=powershell.exe"
 
@@ -29,7 +30,7 @@ if not exist "%DL%\" mkdir "%DL%" >nul 2>nul
 if not exist "%SEVENZIP_BIN%\" mkdir "%SEVENZIP_BIN%" >nul 2>nul
 
 echo ======================================================================
-echo   AUDION GET - INSTALL PORTABLE 7-ZIP
+echo   AUDION BROWSERS PORTABLE - INSTALL PORTABLE 7-ZIP
 echo ======================================================================
 echo Root:    %ROOT%
 echo Target:  %SEVENZIP_BIN%
