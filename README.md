@@ -8,7 +8,7 @@
   <a href="https://github.com/Tensionix/browsers-portable/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/Tensionix/browsers-portable?style=flat-square&color=5fd08a&logo=apache&logoColor=white&cacheSeconds=3600"></a>
 </p>
 
-**Version 2.0.0** · 2026-10-11 · 103.7 MB
+**Version 2.0.0** · 2026-10-12 · 103.7 MB
 
 - [Direct download](https://audion.dev/get/browsers-portable/2.0.0/Audion_Browsers_Portable_v2.0.0_Full.zip) — unmetered, no rate limits
 - [Project page](https://audion.dev/downloads/browsers-portable) — every version and how to install
