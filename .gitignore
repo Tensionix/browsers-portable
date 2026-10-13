@@ -241,6 +241,8 @@ Source/Ps/obj/
 /App/
 # The look of the window on this machine: written beside the manifest, never a source.
 /config/window.json*
+# The sources and targets used on this machine, with their pins: no source either.
+/config/path_history.json*
 
 # Bytecode caches are never sources.
 __pycache__/

@@ -661,6 +661,33 @@ def _file_version(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _windows_text(raw: bytes | str | None) -> str:
+    """What a tool of Windows wrote into a pipe, as text.
+
+    `certutil` writes its Russian lines in the ANSI code page of the system (cp1251 on a Russian
+    Windows), whatever the console is set to. Read as UTF-8 with "replace" they came into the
+    journal as rows of replacement marks - "the certificate was added to the store" could not
+    be read at all (the owner, 13.10.2026, of the journal of an install: "a strange log").
+    UTF-8 is tried first and strictly: a text in a one-byte code page is next to never valid
+    UTF-8, and a tool that does write UTF-8 is read as it wrote.
+    """
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("mbcs" if os.name == "nt" else "latin-1", errors="replace")
+
+
+def _windows_lines(raw: bytes | str | None) -> list[str]:
+    """The lines a tool wrote, each read on its own: a script may change the code page half way."""
+    if isinstance(raw, str):
+        return [line for line in raw.splitlines() if line.strip()]
+    return [line for line in (_windows_text(item) for item in (raw or b"").splitlines()) if line.strip()]
+
+
 def _seven_zip_path(context: JobContext) -> Path:
     return context.paths.root / "tools" / "7zip" / "bin" / "7za.exe"
 
@@ -990,7 +1017,9 @@ def _run_7z(context: JobContext, args: list[str], *, cwd: Path | None = None, do
     process is asked about every half a second now, and a stop ends it at once.
     """
     exe = _require_7zip(context)
-    command = [str(exe), *args]
+    # Told to speak UTF-8: by itself 7-Zip names a file in the OEM code page of the console, and
+    # a path with Cyrillic in a line of its errors came out unreadable.
+    command = [str(exe), *args, "-sccUTF-8"]
     process = subprocess.Popen(
         command,
         # A process cannot start in a folder given in the long form.
@@ -1793,9 +1822,6 @@ def _certificate_present(thumbprint: str, store: str) -> bool:
     result = subprocess.run(
         ["certutil", "-store", "-user", store, thumbprint],
         capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
         timeout=60,
         **hidden_subprocess_kwargs(),
     )
@@ -1833,16 +1859,12 @@ def install_certificates(context: JobContext) -> dict[str, object]:
         result = subprocess.run(
             ["certutil", "-addstore", "-user", "-f", str(item["store"]), str(path)],
             capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=120,
             env=utf8_subprocess_env(),
             **hidden_subprocess_kwargs(),
         )
-        for line in (result.stdout or "").splitlines():
-            if line.strip():
-                context.log(line)
+        for line in _windows_lines(result.stdout):
+            context.log(line)
         if not _certificate_present(str(item["thumbprint"]), str(item["store"])):
             raise RuntimeError(
                 f"{item['subject']} did not reach the {item['store']} store "
@@ -1870,16 +1892,12 @@ def remove_certificates(context: JobContext) -> dict[str, object]:
         result = subprocess.run(
             ["certutil", "-delstore", "-user", str(item["store"]), str(item["thumbprint"])],
             capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=120,
             env=utf8_subprocess_env(),
             **hidden_subprocess_kwargs(),
         )
-        for line in (result.stdout or "").splitlines():
-            if line.strip():
-                context.log(line)
+        for line in _windows_lines(result.stdout):
+            context.log(line)
         if _certificate_present(str(item["thumbprint"]), str(item["store"])):
             raise RuntimeError(
                 f"{item['subject']} is still in the {item['store']} store "
@@ -1910,16 +1928,12 @@ def install_portable_7zip(context: JobContext) -> dict[str, object]:
         [str(script), "/NOPAUSE"],
         cwd=str(context.paths.root),
         capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
         timeout=900,
         env=utf8_subprocess_env(),
         **hidden_subprocess_kwargs(),
     )
-    for line in result.stdout.splitlines():
-        if line.strip():
-            context.log(line)
+    for line in _windows_lines(result.stdout):
+        context.log(line)
     if result.returncode != 0:
         raise RuntimeError(f"Portable 7-Zip install failed with exit code {result.returncode}.")
     version = _seven_zip_version(context)

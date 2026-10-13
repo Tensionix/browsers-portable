@@ -1191,3 +1191,61 @@ def test_a_7z_of_an_updated_build_carries_no_profile_either(tmp_path: Path, monk
     assert not [path for path in paths if "Bookmarks" in path or "my-notes" in path]
     assert archive.name == "Brave of mine.7z" and not list(archive.parent.glob("*.part"))
     assert not list(service._tmp_dir(context).glob("handover-*"))
+
+
+# --- what a tool of Windows says is read in the encoding it says it in ---------------------
+
+
+def test_a_line_of_a_windows_tool_is_read_as_it_was_written() -> None:
+    """certutil writes in the ANSI code page; read as UTF-8 its lines were rows of replacement marks."""
+    said = 'Сертификат "Russian Trusted Root CA" добавлен в хранилище.'
+
+    assert service._windows_text(said.encode("cp1251")) == said
+    assert service._windows_text(said.encode("utf-8")) == said
+    assert service._windows_text(b"CertUtil: -addstore command completed successfully.") == "CertUtil: -addstore command completed successfully."
+    assert service._windows_text(said) == said and service._windows_text(None) == ""
+    # A script may change the code page half way: every line is read on its own, empty ones are dropped.
+    mixed = said.encode("cp1251") + b"\r\n\r\n" + "Готово".encode("utf-8") + b"\r\n"
+    assert service._windows_lines(mixed) == [said, "Готово"]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the code pages of Windows")
+def test_what_certutil_says_reaches_the_journal_readable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    context = _context(tmp_path)
+    _serving(monkeypatch, _certificates(monkeypatch))
+    present: set[str] = set()
+    said = ['Root "Доверенные корневые центры сертификации"', "Подпись соответствует открытому ключу",
+            'Сертификат "Russian Trusted Root CA" добавлен в хранилище.', "CertUtil: -addstore — команда успешно выполнена."]
+
+    class _Done:
+        returncode, stderr = 0, b""
+        stdout = "\r\n".join(said).encode("cp1251")
+
+    def certutil(command: list[str], **options: object) -> _Done:
+        assert "text" not in options and "encoding" not in options, "the output of certutil is taken as bytes"
+        if "-addstore" in command:
+            present.add(service._certificate_thumbprint(Path(command[-1])))
+        return _Done()
+
+    monkeypatch.setattr(service.subprocess, "run", certutil)
+    monkeypatch.setattr(service, "_certificate_present", lambda thumbprint, _store: thumbprint in present)
+
+    service.install_certificates(context)
+
+    log = _log(context)
+    assert all(line in log for line in said) and "�" not in log
+
+
+def test_seven_zip_names_a_file_with_cyrillic_readably(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """By itself 7-Zip names a file in the OEM code page of the console."""
+    seven_zip = Path(__file__).resolve().parents[1] / "tools" / "7zip" / "bin" / "7za.exe"
+    if not seven_zip.is_file():
+        pytest.skip("the portable 7-Zip is not in the project: step 06 of builder_main.cmd")
+    context = _context(tmp_path)
+    monkeypatch.setattr(service, "_require_7zip", lambda _context: seven_zip)
+
+    with pytest.raises(RuntimeError, match="7-Zip failed"):
+        service._run_7z(context, ["l", str(tmp_path / "Нет такого архива.zip")])
+
+    log = _log(context)
+    assert "Нет такого архива.zip" in log and "�" not in log

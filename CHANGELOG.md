@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.1 — 2026-10-13
+
+- Read what `certutil` and 7-Zip say in the encoding they say it in. The Russian lines of `certutil` came into the journal of "Certificate: install" and "revoke" as rows of replacement marks, because they were read as UTF-8; 7-Zip is now told to name files in UTF-8.
+
 ## 2.0.0 — 2026-10-11
 
 The window is new, and every operation can now be run from a console. The engine went through an audit of its own.

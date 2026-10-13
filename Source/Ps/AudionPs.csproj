@@ -22,6 +22,8 @@
     <!-- The number has one owner, config\version.json, as the window's has. -->
     <VersionFile>$(MSBuildProjectDirectory)\..\..\config\version.json</VersionFile>
     <Version>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(VersionFile)')), '"version"\s*:\s*"([^"]+)"').Groups[1].Value)</Version>
+    <!-- The number alone, as the window has it: no revision of a repository after it. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <SatelliteResourceLanguages>en;ru</SatelliteResourceLanguages>
     <ApplicationIcon>..\..\system_core\icons\app.ico</ApplicationIcon>
   </PropertyGroup>
