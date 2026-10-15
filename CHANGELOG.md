@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.2 — 2026-10-15
+
+- Pin the cryptography packages of the PowerShell the program carries (`App\AudionPs.exe`) to 10.0.13: Microsoft.PowerShell.SDK 7.6.6 brings System.Security.Cryptography.Pkcs and .Xml 10.0.10, which have known vulnerabilities. PowerShell itself stays 7.6.6.
+- Build the portable environment in a folder whose path has spaces. The step that looks up the newest Python ran `App\AudionPs.exe` inside `for /f`, and cmd stripped the quotes around its path; it is now started through `call`.
+
 ## 2.0.1 — 2026-10-13
 
 - Read what `certutil` and 7-Zip say in the encoding they say it in. The Russian lines of `certutil` came into the journal of "Certificate: install" and "revoke" as rows of replacement marks, because they were read as UTF-8; 7-Zip is now told to name files in UTF-8.

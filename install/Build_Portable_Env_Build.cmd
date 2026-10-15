@@ -17,11 +17,12 @@ set "DOCTOR=%ROOT%\system_core\doctor.py"
 set "GET_PIP=%DOWNLOAD_DIR%\get-pip.py"
 
 rem The PowerShell the program carries comes first; the one of the machine - where App\ is not built yet.
+rem Started by call inside for /f: without it cmd strips the quotes and a path with spaces breaks.
 set "PS_EXE=%ROOT%\App\AudionPs.exe"
 if not exist "%PS_EXE%" set "PS_EXE=powershell.exe"
 
 set "PYTHON_MINOR=12"
-for /f "usebackq delims=" %%V in (`"%PS_EXE%" -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference='SilentlyContinue'; $latest=$null; for($i=0; $i -le 40; $i++){ $v='3.%PYTHON_MINOR%.'+$i; $u='https://www.python.org/ftp/python/'+$v+'/python-'+$v+'-embed-amd64.zip'; try{ Invoke-WebRequest -Uri $u -Method Head -TimeoutSec 10 | Out-Null; $latest=$v } catch { if($latest){ break } } }; if(-not $latest){ exit 1 }; $latest"`) do set "PYTHON_VERSION=%%V"
+for /f "usebackq delims=" %%V in (`call "%PS_EXE%" -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference='SilentlyContinue'; $latest=$null; for($i=0; $i -le 40; $i++){ $v='3.%PYTHON_MINOR%.'+$i; $u='https://www.python.org/ftp/python/'+$v+'/python-'+$v+'-embed-amd64.zip'; try{ Invoke-WebRequest -Uri $u -Method Head -TimeoutSec 10 | Out-Null; $latest=$v } catch { if($latest){ break } } }; if(-not $latest){ exit 1 }; $latest"`) do set "PYTHON_VERSION=%%V"
 if not defined PYTHON_VERSION goto USE_POWERSHELL
 set "PYTHON_ZIP=python-%PYTHON_VERSION%-embed-amd64.zip"
 set "PYTHON_URL=https://www.python.org/ftp/python/%PYTHON_VERSION%/%PYTHON_ZIP%"

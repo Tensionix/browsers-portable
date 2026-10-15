@@ -262,7 +262,7 @@ BUNDLED COMPONENTS
    Legal documents: L-6b39d18b4151
 
 37. Microsoft.NETCore.App.Runtime.win-x64
-   Version: 10.0.12
+   Version: 10.0.13
    License: MIT
    Source type: dotnet-package
    Provider: Microsoft
@@ -395,7 +395,7 @@ BUNDLED COMPONENTS
    Legal documents: L-deed7c17a431, L-b80816b0d530, L-a8ad31b1c3f4, L-e93716da6b9c, L-1a9a4f0e3d47, L-a9d66f1d526d, L-81932e77fef4, L-cad1ef5bd340, L-f388fd38cad1, L-33be7b7e8fa4, L-808e10c8a6ab, L-130e3a64d5fd, L-29e0fd62e929, L-b70e7e9b742f, L-86da0f01aeae, L-1b22b049b526, L-86eeee87be2a, L-bb28c48e3e07, L-634300a669d4, L-9e9824923444, L-4eb1fb1705e2
 
 56. pluggy
-   Version: 1.6.0
+   Version: 1.7.0
    License: MIT
    Source type: site-packages
    Provider: not recorded
@@ -612,7 +612,7 @@ BUNDLED COMPONENTS
    Legal documents: L-c6926930d018
 
 87. System.Security.Cryptography.Pkcs
-   Version: 10.0.10
+   Version: 10.0.13
    License: MIT
    Source type: dotnet-package
    Provider: Microsoft
@@ -626,7 +626,7 @@ BUNDLED COMPONENTS
    Legal documents: L-c6926930d018
 
 89. System.Security.Cryptography.Xml
-   Version: 10.0.10
+   Version: 10.0.13
    License: MIT
    Source type: dotnet-package
    Provider: Microsoft
@@ -8111,7 +8111,7 @@ under the terms of *both* these licenses.
 [L-cfc21f5e8bd6] LICENSE.TXT
 SHA256: cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310
 Components: Microsoft.NETCore.App.Runtime.win-x64, runtime.native.System.Data.SqlClient.sni, System.Drawing.Common, System.ServiceModel.Http, System.ServiceModel.NetFramingBase, System.ServiceModel.NetTcp, System.ServiceModel.Primitives, System.Web.Services.Description
-Captured from: nuget/Microsoft.NETCore.App.Runtime.win-x64/10.0.12/LICENSE.TXT
+Captured from: nuget/Microsoft.NETCore.App.Runtime.win-x64/10.0.13/LICENSE.TXT
 --------------------------------------------------------------------------------
 The MIT License (MIT)
 
@@ -8142,7 +8142,7 @@ SOFTWARE.
 [L-d6b65e6c213a] LICENSE_1.txt
 SHA256: d6b65e6c213a5d0b577911d34d6e5949b9f59d76c238c5071a2f3fc16cfb2606
 Components: pluggy
-Captured from: pluggy-1.6.0/LICENSE_1.txt
+Captured from: pluggy-1.7.0/LICENSE_1.txt
 --------------------------------------------------------------------------------
 The MIT License (MIT)
 

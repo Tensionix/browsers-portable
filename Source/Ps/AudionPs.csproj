@@ -30,6 +30,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.6" />
+    <!-- The SDK brings System.Security.Cryptography.Pkcs and .Xml 10.0.10, both with known vulnerabilities (NuGet NU1902,
+         NU1903): the fixed versions are taken over them. An SDK that brings fixed ones itself makes these two lines needless. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.13" />
   </ItemGroup>
 
   <!-- A win-x64 publish puts System.Management.Automation.dll in the root of the output, and

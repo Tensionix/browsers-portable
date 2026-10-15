@@ -207,9 +207,9 @@ version: 3.0.0
 url: https://github.com/PowerShell/MMI
 
 Component: Microsoft.NETCore.App.Runtime.win-x64
-Version/profile: 10.0.12
+Version/profile: 10.0.13
 Method: upstream_pin
-version: 10.0.12
+version: 10.0.13
 url: https://github.com/dotnet/dotnet
 
 Component: Microsoft.PowerShell.Commands.Diagnostics
@@ -459,9 +459,9 @@ version: 10.0.5
 url: https://github.com/dotnet/dotnet
 
 Component: System.Security.Cryptography.Pkcs
-Version/profile: 10.0.10
+Version/profile: 10.0.13
 Method: upstream_pin
-version: 10.0.10
+version: 10.0.13
 url: https://github.com/dotnet/dotnet
 
 Component: System.Security.Cryptography.ProtectedData
@@ -471,9 +471,9 @@ version: 10.0.5
 url: https://github.com/dotnet/dotnet
 
 Component: System.Security.Cryptography.Xml
-Version/profile: 10.0.10
+Version/profile: 10.0.13
 Method: upstream_pin
-version: 10.0.10
+version: 10.0.13
 url: https://github.com/dotnet/dotnet
 
 Component: System.Security.Permissions

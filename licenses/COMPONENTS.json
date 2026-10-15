@@ -1,6 +1,6 @@
 {
   "schema": "audion.build_licenses.components.v1",
-  "generated_utc": "2026-10-13T05:23:48Z",
+  "generated_utc": "2026-10-15T23:19:28Z",
   "project_id": "audion-browsers-portable",
   "project_name": "Audion Browsers Portable",
   "scan_root": ".",
@@ -656,7 +656,7 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "",
-      "artifact_sha256": "a6a1aed1f32ec88b8ad975aefcc43f3b7cf957aebbaaef6f36836a905be364ee",
+      "artifact_sha256": "43369e67eaa479217531e17cb8b8a7cbae94539d0304120a6a56b3382f3274f1",
       "artifact_path": "runtime/Lib/site-packages/colorama-0.4.6.dist-info/INSTALLER; runtime/Lib/site-packages/colorama-0.4.6.dist-info/METADATA; runtime/Lib/site-packages/colorama-0.4.6.dist-info/RECORD; runtime/Lib/site-packages/colorama-0.4.6.dist-info/WHEEL; runtime/Lib/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt; runtime/Lib/site-packages/colorama/__init__.py; runtime/Lib/site-packages/colorama/__pycache__/__init__.cpython-312.pyc; runtime/Lib/site-packages/colorama/__pycache__/ansi.cpython-312.pyc",
       "obligation_class": "permissive",
       "redistributable": true,
@@ -810,7 +810,7 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "",
-      "artifact_sha256": "631bf67e5898d80f7c437d78ba71f27216ec916172fc8aa155ee6375ddde7bd9",
+      "artifact_sha256": "047b37af102e10f02b6c5cb8500077c356c165a48093bfa8ee5bed78466544bf",
       "artifact_path": "runtime/Lib/site-packages/iniconfig-2.3.1.dist-info/INSTALLER; runtime/Lib/site-packages/iniconfig-2.3.1.dist-info/METADATA; runtime/Lib/site-packages/iniconfig-2.3.1.dist-info/RECORD; runtime/Lib/site-packages/iniconfig-2.3.1.dist-info/WHEEL; runtime/Lib/site-packages/iniconfig-2.3.1.dist-info/licenses/LICENSE; runtime/Lib/site-packages/iniconfig-2.3.1.dist-info/top_level.txt; runtime/Lib/site-packages/iniconfig/__init__.py; runtime/Lib/site-packages/iniconfig/__pycache__/__init__.cpython-312.pyc",
       "obligation_class": "permissive",
       "redistributable": true,
@@ -1465,7 +1465,7 @@
       "id": "nuget-microsoft.netcore.app.runtime.win-x64",
       "name": "Microsoft.NETCore.App.Runtime.win-x64",
       "normalized_name": "microsoft-netcore-app-runtime-win-x64",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "license_summary": "MIT",
       "license_expression": "MIT",
       "linkage": "dynamic_library",
@@ -1480,20 +1480,20 @@
       "source_reference": {
         "type": "upstream_pin",
         "url": "https://github.com/dotnet/dotnet",
-        "version": "10.0.12",
-        "commit": "95017c711e6afc1085133d440e42b4bd78155701"
+        "version": "10.0.13",
+        "commit": "4099f83977f4d29604a9aeb971fb0a7bc1d5f699"
       },
       "legal_documents": [
         {
           "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
           "display_name": "LICENSE.TXT",
-          "source_path": "nuget/Microsoft.NETCore.App.Runtime.win-x64/10.0.12/LICENSE.TXT",
+          "source_path": "nuget/Microsoft.NETCore.App.Runtime.win-x64/10.0.13/LICENSE.TXT",
           "raw_size": 1139
         },
         {
           "sha256": "c6926930d0181fa515076603e1305461b1bce5275a8b35337d75d2eef3acad4a",
           "display_name": "THIRD-PARTY-NOTICES.TXT",
-          "source_path": "nuget/Microsoft.NETCore.App.Runtime.win-x64/10.0.12/THIRD-PARTY-NOTICES.TXT",
+          "source_path": "nuget/Microsoft.NETCore.App.Runtime.win-x64/10.0.13/THIRD-PARTY-NOTICES.TXT",
           "raw_size": 78041
         }
       ],
@@ -1504,7 +1504,7 @@
         ],
         "runtime_pack": true,
         "copyright": "© Microsoft Corporation. All rights reserved.",
-        "nuget": "https://www.nuget.org/packages/Microsoft.NETCore.App.Runtime.win-x64/10.0.12"
+        "nuget": "https://www.nuget.org/packages/Microsoft.NETCore.App.Runtime.win-x64/10.0.13"
       },
       "license_fingerprint": "cedbe796343121b119bc022839827dadce16619abe9ae08ad9b3d65b240af93c"
     },
@@ -2148,7 +2148,7 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "",
-      "artifact_sha256": "278b3ed4bdb27e6bb46e2bd460f165c323ef1dd777ee55255ae746ff51e73600",
+      "artifact_sha256": "62ef1a549e15e1ce4013ed53703373c75442de685cf24bb33f2fe2e063cdaf2c",
       "artifact_path": "runtime/Lib/site-packages/packaging-26.3.dist-info/INSTALLER; runtime/Lib/site-packages/packaging-26.3.dist-info/METADATA; runtime/Lib/site-packages/packaging-26.3.dist-info/RECORD; runtime/Lib/site-packages/packaging-26.3.dist-info/REQUESTED; runtime/Lib/site-packages/packaging-26.3.dist-info/WHEEL; runtime/Lib/site-packages/packaging-26.3.dist-info/licenses/LICENSE; runtime/Lib/site-packages/packaging-26.3.dist-info/licenses/LICENSE.APACHE; runtime/Lib/site-packages/packaging-26.3.dist-info/licenses/LICENSE.BSD",
       "obligation_class": "permissive",
       "redistributable": true,
@@ -2188,7 +2188,7 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "",
-      "artifact_sha256": "309901770f923b7c4426ccc544281aedf020b906031fd172c3e09ce1278582f5",
+      "artifact_sha256": "ba19eed22b6c57bd94658e5b1314fbba2bae237777babfc6ded436b7e6446512",
       "artifact_path": "runtime/Lib/site-packages/pip-26.2.1.dist-info/INSTALLER; runtime/Lib/site-packages/pip-26.2.1.dist-info/METADATA; runtime/Lib/site-packages/pip-26.2.1.dist-info/RECORD; runtime/Lib/site-packages/pip-26.2.1.dist-info/REQUESTED; runtime/Lib/site-packages/pip-26.2.1.dist-info/WHEEL; runtime/Lib/site-packages/pip-26.2.1.dist-info/entry_points.txt; runtime/Lib/site-packages/pip-26.2.1.dist-info/licenses/AUTHORS.txt; runtime/Lib/site-packages/pip-26.2.1.dist-info/licenses/LICENSE.txt",
       "obligation_class": "permissive",
       "redistributable": true,
@@ -2328,7 +2328,7 @@
       "id": "pluggy",
       "name": "pluggy",
       "normalized_name": "pluggy",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license_summary": "MIT",
       "license_expression": "MIT",
       "linkage": "python_import",
@@ -2336,8 +2336,8 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "",
-      "artifact_sha256": "0684987f2e8ecda220a4d6ca97f5a8b3527214eda6567c54a2971e74b22b5018",
-      "artifact_path": "runtime/Lib/site-packages/pluggy-1.6.0.dist-info/INSTALLER; runtime/Lib/site-packages/pluggy-1.6.0.dist-info/METADATA; runtime/Lib/site-packages/pluggy-1.6.0.dist-info/RECORD; runtime/Lib/site-packages/pluggy-1.6.0.dist-info/WHEEL; runtime/Lib/site-packages/pluggy-1.6.0.dist-info/licenses/LICENSE; runtime/Lib/site-packages/pluggy-1.6.0.dist-info/top_level.txt; runtime/Lib/site-packages/pluggy/__init__.py; runtime/Lib/site-packages/pluggy/__pycache__/__init__.cpython-312.pyc",
+      "artifact_sha256": "d2c929d37e74b0e0dbe3a8e26307fa9d81a99dde3b4bfc26315ffd4855ae5784",
+      "artifact_path": "runtime/Lib/site-packages/pluggy-1.7.0.dist-info/INSTALLER; runtime/Lib/site-packages/pluggy-1.7.0.dist-info/METADATA; runtime/Lib/site-packages/pluggy-1.7.0.dist-info/RECORD; runtime/Lib/site-packages/pluggy-1.7.0.dist-info/WHEEL; runtime/Lib/site-packages/pluggy-1.7.0.dist-info/licenses/LICENSE; runtime/Lib/site-packages/pluggy-1.7.0.dist-info/top_level.txt; runtime/Lib/site-packages/pluggy/__init__.py; runtime/Lib/site-packages/pluggy/__pycache__/__init__.cpython-312.pyc",
       "obligation_class": "permissive",
       "redistributable": true,
       "source_reference": null,
@@ -2345,7 +2345,7 @@
         {
           "sha256": "d6b65e6c213a5d0b577911d34d6e5949b9f59d76c238c5071a2f3fc16cfb2606",
           "display_name": "LICENSE_1.txt",
-          "source_path": "pluggy-1.6.0/LICENSE_1.txt",
+          "source_path": "pluggy-1.7.0/LICENSE_1.txt",
           "raw_size": 1110
         }
       ],
@@ -2364,7 +2364,7 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "",
-      "artifact_sha256": "1d18d1cbba60e229aa0c3523896fdc2a35144719c473788c3bb54b7f347b683f",
+      "artifact_sha256": "68c86e03399a351c07ce4d4c918f4726a681bc98c1599a84db845e037f43f38a",
       "artifact_path": "runtime/Lib/site-packages/pygments-2.21.0.dist-info/INSTALLER; runtime/Lib/site-packages/pygments-2.21.0.dist-info/METADATA; runtime/Lib/site-packages/pygments-2.21.0.dist-info/RECORD; runtime/Lib/site-packages/pygments-2.21.0.dist-info/WHEEL; runtime/Lib/site-packages/pygments-2.21.0.dist-info/entry_points.txt; runtime/Lib/site-packages/pygments-2.21.0.dist-info/licenses/AUTHORS; runtime/Lib/site-packages/pygments-2.21.0.dist-info/licenses/LICENSE; runtime/Lib/site-packages/pygments/__init__.py",
       "obligation_class": "permissive",
       "redistributable": true,
@@ -2398,7 +2398,7 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "",
-      "artifact_sha256": "8e856803acf9699b7c7361ea61b78993b076f1e419aac940e626c5ae763de1c4",
+      "artifact_sha256": "ae04402b535e67d432d560b4740cdca95249bcf47742dda9fcbe827934523ff3",
       "artifact_path": "runtime/Lib/site-packages/__pycache__/py.cpython-312.pyc; runtime/Lib/site-packages/_pytest/__init__.py; runtime/Lib/site-packages/_pytest/__pycache__/__init__.cpython-312.pyc; runtime/Lib/site-packages/_pytest/__pycache__/_argcomplete.cpython-312.pyc; runtime/Lib/site-packages/_pytest/__pycache__/_version.cpython-312.pyc; runtime/Lib/site-packages/_pytest/__pycache__/cacheprovider.cpython-312.pyc; runtime/Lib/site-packages/_pytest/__pycache__/capture.cpython-312.pyc; runtime/Lib/site-packages/_pytest/__pycache__/compat.cpython-312.pyc",
       "obligation_class": "permissive",
       "redistributable": true,
@@ -2426,7 +2426,7 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "",
-      "artifact_sha256": "142eb0ca42208d62210b8e14507cfe42e646a82513e27ccf5d5eb8b93447fb52",
+      "artifact_sha256": "f3eeb25760be83110f63514b2d87ea800748ed26bf7a5298b2e709931b66b47b",
       "artifact_path": "runtime/LICENSE.txt; runtime/Scripts/pip.exe; runtime/Scripts/pip3.12.exe; runtime/Scripts/pip3.exe; runtime/Scripts/py.test.exe; runtime/Scripts/pygmentize.exe; runtime/Scripts/pytest.exe; runtime/Scripts/wheel.exe",
       "obligation_class": "permissive",
       "redistributable": true,
@@ -2469,7 +2469,7 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "",
-      "artifact_sha256": "3289d1474cda1c6b7f8dc048e1165a6e1e13e4724a18009a914b4935ef02c251",
+      "artifact_sha256": "146a2398e48c90adc3030599667d59b023e1209fcbb0a4251613d398c6f208ba",
       "artifact_path": "runtime/Lib/site-packages/_yaml/__init__.py; runtime/Lib/site-packages/_yaml/__pycache__/__init__.cpython-312.pyc; runtime/Lib/site-packages/pyyaml-6.0.3.dist-info/INSTALLER; runtime/Lib/site-packages/pyyaml-6.0.3.dist-info/METADATA; runtime/Lib/site-packages/pyyaml-6.0.3.dist-info/RECORD; runtime/Lib/site-packages/pyyaml-6.0.3.dist-info/REQUESTED; runtime/Lib/site-packages/pyyaml-6.0.3.dist-info/WHEEL; runtime/Lib/site-packages/pyyaml-6.0.3.dist-info/licenses/LICENSE",
       "obligation_class": "permissive",
       "redistributable": true,
@@ -2581,7 +2581,7 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "",
-      "artifact_sha256": "6cc6f4c2805fb1b7851d5690da49650a3f0bf8299f7dba795c6f129873ddd054",
+      "artifact_sha256": "9a6a28d190f4e9ca6d9f3a7a2dc9bc81802297b7170903c8f913098d9a74467d",
       "artifact_path": "runtime/Lib/site-packages/_distutils_hack/__init__.py; runtime/Lib/site-packages/_distutils_hack/__pycache__/__init__.cpython-312.pyc; runtime/Lib/site-packages/_distutils_hack/__pycache__/override.cpython-312.pyc; runtime/Lib/site-packages/_distutils_hack/override.py; runtime/Lib/site-packages/distutils-precedence.pth; runtime/Lib/site-packages/setuptools-84.0.0.dist-info/INSTALLER; runtime/Lib/site-packages/setuptools-84.0.0.dist-info/METADATA; runtime/Lib/site-packages/setuptools-84.0.0.dist-info/RECORD",
       "obligation_class": "permissive",
       "redistributable": true,
@@ -3608,7 +3608,7 @@
       "id": "nuget-system.security.cryptography.pkcs",
       "name": "System.Security.Cryptography.Pkcs",
       "normalized_name": "system-security-cryptography-pkcs",
-      "version": "10.0.10",
+      "version": "10.0.13",
       "license_summary": "MIT",
       "license_expression": "MIT",
       "linkage": "dynamic_library",
@@ -3616,21 +3616,21 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "Microsoft",
-      "artifact_sha256": "KG8t5RHczdgB3IWvRndpI0nE1DSo7ikDYSDbITxfgRFyIvnYiKzuPjaZOsPnwFQ1aOGUl9sEulJul9wlHLEUoA==",
+      "artifact_sha256": "a+EovgC1fBnwdlQ6cn3j4JFBfKqiFaFvoAhjisOoSvazLAcIznaBzPQP0oYnvccmeXfqUH1KebVZOxSeH6rMaw==",
       "artifact_path": "",
       "obligation_class": "permissive",
       "redistributable": true,
       "source_reference": {
         "type": "upstream_pin",
         "url": "https://github.com/dotnet/dotnet",
-        "version": "10.0.10",
-        "commit": "f7d90799ce4ef09a0bb257852a57248d2a8fb8dd"
+        "version": "10.0.13",
+        "commit": "4099f83977f4d29604a9aeb971fb0a7bc1d5f699"
       },
       "legal_documents": [
         {
           "sha256": "c6926930d0181fa515076603e1305461b1bce5275a8b35337d75d2eef3acad4a",
           "display_name": "THIRD-PARTY-NOTICES.TXT",
-          "source_path": "nuget/System.Security.Cryptography.Pkcs/10.0.10/THIRD-PARTY-NOTICES.TXT",
+          "source_path": "nuget/System.Security.Cryptography.Pkcs/10.0.13/THIRD-PARTY-NOTICES.TXT",
           "raw_size": 78041
         }
       ],
@@ -3640,7 +3640,7 @@
         ],
         "runtime_pack": false,
         "copyright": "© Microsoft Corporation. All rights reserved.",
-        "nuget": "https://www.nuget.org/packages/System.Security.Cryptography.Pkcs/10.0.10"
+        "nuget": "https://www.nuget.org/packages/System.Security.Cryptography.Pkcs/10.0.13"
       },
       "license_fingerprint": "61b5c44fbaf174ae4ab01d9462f63d8b9063da819fa6261e353dd808613923a9"
     },
@@ -3688,7 +3688,7 @@
       "id": "nuget-system.security.cryptography.xml",
       "name": "System.Security.Cryptography.Xml",
       "normalized_name": "system-security-cryptography-xml",
-      "version": "10.0.10",
+      "version": "10.0.13",
       "license_summary": "MIT",
       "license_expression": "MIT",
       "linkage": "dynamic_library",
@@ -3696,21 +3696,21 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "Microsoft",
-      "artifact_sha256": "Mz6Y+s+uMQKj1H2BUF0OhlmaOQkLgSG34/IrUaBDirYBQ6bgwcFvO/XtXWcoDlBLFoFB0uKqDNhybHOd+fQK1A==",
+      "artifact_sha256": "v6/GHhLaHkuN/ISgbKzBeyC7TP7S6Qm/dVyKA+p0ay9nlJyLif+spozjAGclY/FRIv2TC+KNQCo7dSNmupvWtQ==",
       "artifact_path": "",
       "obligation_class": "permissive",
       "redistributable": true,
       "source_reference": {
         "type": "upstream_pin",
         "url": "https://github.com/dotnet/dotnet",
-        "version": "10.0.10",
-        "commit": "f7d90799ce4ef09a0bb257852a57248d2a8fb8dd"
+        "version": "10.0.13",
+        "commit": "4099f83977f4d29604a9aeb971fb0a7bc1d5f699"
       },
       "legal_documents": [
         {
           "sha256": "c6926930d0181fa515076603e1305461b1bce5275a8b35337d75d2eef3acad4a",
           "display_name": "THIRD-PARTY-NOTICES.TXT",
-          "source_path": "nuget/System.Security.Cryptography.Xml/10.0.10/THIRD-PARTY-NOTICES.TXT",
+          "source_path": "nuget/System.Security.Cryptography.Xml/10.0.13/THIRD-PARTY-NOTICES.TXT",
           "raw_size": 78041
         }
       ],
@@ -3720,7 +3720,7 @@
         ],
         "runtime_pack": false,
         "copyright": "© Microsoft Corporation. All rights reserved.",
-        "nuget": "https://www.nuget.org/packages/System.Security.Cryptography.Xml/10.0.10"
+        "nuget": "https://www.nuget.org/packages/System.Security.Cryptography.Xml/10.0.13"
       },
       "license_fingerprint": "d1ed1cf897467b949438e4b336c4fd05615fd5ae09eea13f8b03921535890dbb"
     },
@@ -4206,7 +4206,7 @@
       "bundled": true,
       "optional_runtime": false,
       "provider": "",
-      "artifact_sha256": "fc999f1af7738396b2dbde17c68108b7dd9c36b1bf932051c01dcce4c6e4d349",
+      "artifact_sha256": "9cb7b61bdc9d62a32ba6159ed9f10cc862b8ef5c9b3ccc763279278b8a513e67",
       "artifact_path": "runtime/Lib/site-packages/wheel-0.48.0.dist-info/INSTALLER; runtime/Lib/site-packages/wheel-0.48.0.dist-info/METADATA; runtime/Lib/site-packages/wheel-0.48.0.dist-info/RECORD; runtime/Lib/site-packages/wheel-0.48.0.dist-info/REQUESTED; runtime/Lib/site-packages/wheel-0.48.0.dist-info/WHEEL; runtime/Lib/site-packages/wheel-0.48.0.dist-info/entry_points.txt; runtime/Lib/site-packages/wheel-0.48.0.dist-info/licenses/LICENSE.txt; runtime/Lib/site-packages/wheel/__init__.py",
       "obligation_class": "permissive",
       "redistributable": true,

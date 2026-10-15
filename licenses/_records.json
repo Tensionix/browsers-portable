@@ -470,7 +470,7 @@
   },
   {
     "name": "Microsoft.NETCore.App.Runtime.win-x64",
-    "version": "10.0.12",
+    "version": "10.0.13",
     "license": "MIT",
     "source": "dotnet-package",
     "license_files": [
@@ -740,7 +740,7 @@
   },
   {
     "name": "pluggy",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "license": "MIT",
     "source": "site-packages",
     "license_files": [
@@ -1160,7 +1160,7 @@
   },
   {
     "name": "System.Security.Cryptography.Pkcs",
-    "version": "10.0.10",
+    "version": "10.0.13",
     "license": "MIT",
     "source": "dotnet-package",
     "license_files": [
@@ -1186,7 +1186,7 @@
   },
   {
     "name": "System.Security.Cryptography.Xml",
-    "version": "10.0.10",
+    "version": "10.0.13",
     "license": "MIT",
     "source": "dotnet-package",
     "license_files": [
