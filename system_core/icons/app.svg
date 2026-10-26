@@ -1,39 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg"
-     width="1024" height="1024" viewBox="0 0 1024 1024"
-     role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" role="img" aria-labelledby="title description">
   <title id="title">Audion Browsers Portable</title>
-  <desc id="description">A Chromium-inspired blue circular browser emblem with a white download arrow. The emblem fills the square canvas; the surrounding corners are transparent.</desc>
-  <g id="chromium-emblem">
-    <circle id="medium-blue-sector-base" cx="512" cy="512" r="512" fill="#2f91fd"/>
-    <path id="dark-blue-sector" fill="#0a62d7"
-          d="M 68.594993 256
-             A 512 512 0 0 1 955.405007 256
-             H 512
-             L 290.297497 640
-             Z"/>
-    <path id="light-blue-sector" fill="#70b1fd"
-          d="M 955.405007 256
-             A 512 512 0 0 1 512 1024
-             L 733.702503 640
-             L 512 256
-             Z"/>
-    <circle id="white-center-ring" cx="512" cy="512" r="256" fill="#ffffff"/>
-    <circle id="blue-center" cx="512" cy="512" r="217" fill="#1a78ea"/>
+  <desc id="description">Three independent rounded annular modules in blue and Burnt Orange surround a graphite download hub. Transparent radial seams and a circular gap separate the modules and the center. The corners outside the circular emblem are transparent.</desc>
+  <defs>
+    <linearGradient id="blue" x1="64" y1="128" x2="980" y2="680" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#65E6FF"/>
+      <stop offset=".5" stop-color="#18B6EE"/>
+      <stop offset="1" stop-color="#147BE8"/>
+    </linearGradient>
+    <linearGradient id="burnt" x1="224" y1="728" x2="800" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EE894A"/>
+      <stop offset=".5" stop-color="#CC5500"/>
+      <stop offset="1" stop-color="#A63B19"/>
+    </linearGradient>
+    <linearGradient id="hub" x1="300" y1="300" x2="724" y2="748" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#26334C"/>
+      <stop offset=".5" stop-color="#151D31"/>
+      <stop offset="1" stop-color="#0A1120"/>
+    </linearGradient>
+  </defs>
+  <g id="separated-browser-modules">
+    <path id="right-blue-module" d="M 559.558345 2.213570 A 512 512 0 0 1 977.267171 725.706479 A 20 20 0 0 1 950.012862 735.178701 L 789.422290 653.353717 A 20 20 0 0 1 780.136580 627.614767 A 292 292 0 0 0 545.942965 221.979526 A 20 20 0 0 1 528.295235 201.068391 L 537.728007 21.080384 A 20 20 0 0 1 559.558345 2.213570 Z" fill="url(#blue)"/>
+    <path id="lower-burnt-orange-module" d="M 929.708826 808.079950 A 512 512 0 0 1 94.291174 808.079950 A 20 20 0 0 1 99.715145 779.740916 L 250.872946 681.577892 A 20 20 0 0 1 277.806385 686.405707 A 292 292 0 0 0 746.193615 686.405707 A 20 20 0 0 1 773.127054 681.577892 L 924.284855 779.740916 A 20 20 0 0 1 929.708826 808.079950 Z" fill="url(#burnt)"/>
+    <path id="left-blue-module" d="M 46.732829 725.706479 A 512 512 0 0 1 464.441655 2.213570 A 20 20 0 0 1 486.271993 21.080384 L 495.704765 201.068391 A 20 20 0 0 1 478.057035 221.979526 A 292 292 0 0 0 243.863420 627.614767 A 20 20 0 0 1 234.577710 653.353717 L 73.987138 735.178701 A 20 20 0 0 1 46.732829 725.706479 Z" fill="url(#blue)"/>
   </g>
-  <path id="download-arrow" fill="#ffffff"
-        d="M 460 368
-           H 564
-           C 573 368 580 375 580 384
-           V 520
-           H 648
-           C 661 520 667 535 658 544
-           L 526 676
-           C 518 684 506 684 498 676
-           L 366 544
-           C 357 535 363 520 376 520
-           H 444
-           V 384
-           C 444 375 451 368 460 368
-           Z"/>
+  <circle id="download-hub" cx="512" cy="512" r="244" fill="url(#hub)"/>
+  <path id="download-arrow" fill="#FFFFFF" d="M 460 368 H 564 C 573 368 580 375 580 384 V 520 H 648 C 661 520 667 535 658 544 L 526 676 C 518 684 506 684 498 676 L 366 544 C 357 535 363 520 376 520 H 444 V 384 C 444 375 451 368 460 368 Z"/>
 </svg>

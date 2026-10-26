@@ -60,12 +60,19 @@ def existing(ctx: JobContext, browser_id="chrome", arch="x64", engine="proxy_lib
 
 def archive(root: Path, engine: str, arch="x64") -> Path:
     dll = pe(root / f"new-{arch}.dll", arch, b"dll-new")
+    if engine == "chrome_plus":  # one 7z, as the author ships it: <arch>\App\version.dll and chrome++.ini
+        tree = root / "chrome_plus_tree"
+        app = tree / arch / "App"
+        app.mkdir(parents=True, exist_ok=True)
+        (app / "version.dll").write_bytes(dll.read_bytes())
+        (app / "chrome++.ini").write_bytes(b"\xff\xfe" + "[general]\nlaunch_on_exit=\n".encode("utf-16-le"))
+        result = root / f"Chrome++_v2.0.0_{arch}.7z"
+        subprocess.run([str(libraries.SEVEN_ZIP), "a", "-t7z", str(result), arch], cwd=tree, check=True, capture_output=True)
+        return result
     result = root / f"{engine}-{arch}.zip"
     with zipfile.ZipFile(result, "w") as zipped:
         name = libraries.PROXY_DLLS[arch] if engine == "proxy_library" else "version.dll"
         zipped.write(dll, name)
-        if engine == "chrome_plus":
-            zipped.writestr("chrome++.ini", b"\xff\xfe" + "[general]\nlaunch_on_exit=\n".encode("utf-16-le"))
     return result
 
 

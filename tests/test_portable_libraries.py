@@ -6,6 +6,8 @@ import configparser
 import json
 import shutil
 import struct
+import subprocess
+import zipfile
 
 import pytest
 import yaml
@@ -247,3 +249,92 @@ def test_complete_build_can_use_reserve_when_library_host_is_offline(tmp_path, m
     assert (artifact / 'App/version.dll').is_file()
     assert built['portable_engine'] == engine
     assert '[FALLBACK]' in ctx.log_file.read_text(encoding='utf-8')
+
+
+# --- Chrome++ of its author: one 7z of every architecture -------------------------------------------------------------
+
+needs_7zip = pytest.mark.skipif(not libraries.SEVEN_ZIP.is_file(), reason='portable 7-Zip is not in place')
+AUTHOR_URL = 'https://github.com/Bush2021/chrome_plus/releases/download/1.18.2/Chrome%2B%2B_v1.18.2_x86_x64_arm64.7z'
+FORK_URL = 'https://github.com/DeftKing/chrome_plus/releases/download/1.18.3/version-x64-1.18.3.zip'
+
+
+def pe(arch):
+    raw = bytearray(96)
+    raw[:2] = b'MZ'
+    struct.pack_into('<I', raw, 0x3C, 64)
+    raw[64:68] = b'PE\x00\x00'
+    struct.pack_into('<H', raw, 68, {v: k for k, v in libraries.MACHINES.items()}[arch])
+    return bytes(raw)
+
+
+def author_7z(folder, swapped=False):
+    """The layout of the author: <arch>/App/version.dll and chrome++.ini (UTF-16 LE), <arch>/Data."""
+    tree = folder / 'tree'
+    for arch in ('x86', 'x64', 'arm64'):
+        app = tree / arch / 'App'
+        app.mkdir(parents=True)
+        (app / 'version.dll').write_bytes(pe({'x86': 'x64', 'x64': 'x86'}.get(arch, arch) if swapped else arch))
+        (app / 'chrome++.ini').write_bytes(b'\xff\xfe' + '[general]\nlaunch_on_exit=\n'.encode('utf-16-le'))
+        (tree / arch / 'Data').mkdir()
+    archive = folder / 'Chrome++_v1.18.2_x86_x64_arm64.7z'
+    subprocess.run([str(libraries.SEVEN_ZIP), 'a', '-t7z', str(archive), 'x86', 'x64', 'arm64'], cwd=tree, check=True, capture_output=True)
+    return archive
+
+
+def fork_zip(path):
+    with zipfile.ZipFile(path, 'w') as zipped:
+        zipped.writestr('version.dll', pe('x64'))
+        zipped.writestr('chrome++.ini', b'')
+    return path
+
+
+def test_the_release_of_the_author_is_one_7z_of_every_architecture():
+    assets = [('setdll.7z', 'setdll'), ('Chrome%2B%2B_v1.18.2_x86_x64_arm64.7z', AUTHOR_URL)]
+    asked = []
+    for arch in ('x86', 'x64', 'arm64'):
+        found = libraries.github_release('chrome_plus', arch, lambda repo: asked.append(repo) or ('1.18.2', assets))
+        assert found == ('1.18.2', 'Chrome++_v1.18.2_x86_x64_arm64.7z', AUTHOR_URL)
+    assert set(asked) == {'Bush2021/chrome_plus'}
+    with pytest.raises(RuntimeError, match='no arm64 archive'):
+        libraries.github_release('chrome_plus', 'arm64', lambda repo: ('1.18.2', [('Chrome++_v1.18.2_x86_x64.7z', AUTHOR_URL)]))
+
+
+@needs_7zip
+def test_the_files_of_one_architecture_are_read_out_of_the_7z(tmp_path):
+    archive = author_7z(tmp_path / 'author')
+    for arch in ('x86', 'x64', 'arm64'):
+        files = libraries.library_files(archive, 'chrome_plus', arch)
+        assert sorted(files) == ['chrome++.ini', 'version.dll']
+        assert libraries.pe_architecture_bytes(files['version.dll']) == arch
+    with pytest.raises(RuntimeError, match='must match x64'):
+        libraries.library_files(author_7z(tmp_path / 'swapped', swapped=True), 'chrome_plus', 'x64')
+    with pytest.raises(RuntimeError, match='7z of Bush2021/chrome_plus'):
+        libraries.library_files(fork_zip(tmp_path / 'version-x64-1.18.2.zip'), 'chrome_plus', 'x64')
+
+
+@needs_7zip
+def test_a_reserve_of_the_fork_is_passed_by_and_the_one_of_the_author_is_taken(tmp_path):
+    ctx = context(tmp_path)
+    cache_root = service._archives_dir(ctx)
+    folder = cache_root / 'portable_libraries/chrome_plus/x64'
+    folder.mkdir(parents=True)
+    author = folder / '1.18.2-Chrome++_v1.18.2_x86_x64_arm64.7z'
+    shutil.copy2(author_7z(tmp_path / 'author'), author)
+    fork = fork_zip(folder / '1.18.3-version-x64-1.18.3.zip')
+    for path, version, url in ((author, '1.18.2', AUTHOR_URL), (fork, '1.18.3', FORK_URL)):
+        path.with_suffix('.json').write_text(json.dumps(dict(engine='chrome_plus', architecture='x64', version=version, name=path.name,
+                                                             url=url, sha256=libraries._digest(path), size=path.stat().st_size)))
+    asset, version = libraries.local_library(ctx, 'chrome_plus', 'x64', cache_root)
+    assert (asset.path, version) == (author, '1.18.2')
+    assert not ctx.log_file.exists() or '[WARN]' not in ctx.log_file.read_text(encoding='utf-8')
+
+
+@needs_7zip
+def test_chrome_plus_of_the_author_is_placed_beside_the_browser(tmp_path):
+    ctx = context(tmp_path)
+    build = tmp_path / 'build'
+    fake_browser(build, 'x86')
+    place(ctx, build, 'chrome_plus', author_7z(tmp_path / 'author'))
+    assert libraries.installed_engine(build) == 'chrome_plus'
+    assert libraries.pe_architecture(build / 'App/version.dll') == 'x86'
+    assert 'launch_on_exit=' in (build / 'App/chrome++.ini').read_bytes()[2:].decode('utf-16-le')

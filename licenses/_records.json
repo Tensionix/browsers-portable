@@ -1,7 +1,7 @@
 [
   {
     "name": "7-Zip",
-    "version": "26.4.0",
+    "version": "26.5.0",
     "license": "GNU LGPL / BSD; unRAR restriction where included; see bundled 7-Zip license",
     "source": "optional-tool",
     "license_files": [
@@ -707,7 +707,7 @@
   },
   {
     "name": "pip",
-    "version": "26.2.1",
+    "version": "26.2.2",
     "license": "MIT",
     "source": "site-packages",
     "license_files": [
@@ -833,7 +833,7 @@
   },
   {
     "name": "setuptools",
-    "version": "84.0.0",
+    "version": "84.2.1",
     "license": "MIT",
     "source": "site-packages",
     "license_files": [

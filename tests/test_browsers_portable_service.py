@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from pathlib import Path
 import struct
+import subprocess
 import zipfile
 
 import pytest
@@ -11,6 +12,7 @@ from system_core.core.jobs import JobContext
 from system_core.core.manifest import Operation
 from system_core.core.paths import ensure_project_dirs, get_project_paths
 from system_core.services import browser_registry, browsers_portable_service as service
+from system_core.services import portable_libraries as libraries
 
 
 UTF16_INI = (
@@ -52,13 +54,18 @@ def _context(tmp_path: Path, **parameters: object) -> JobContext:
     )
 
 
-def _chrome_plus_tree(context: JobContext) -> None:
-    """A pre-extracted Chrome++ archive, one App per architecture."""
-    root = service._tmp_dir(context) / "chrome_plus"
+def _chrome_plus_tree(context: JobContext) -> Path:
+    """The 7z of Chrome++ as its author ships it: one App per architecture."""
+    if not libraries.SEVEN_ZIP.is_file():
+        pytest.skip("portable 7-Zip is not in place")
+    root = context.paths.root / "chrome_plus_tree"
     for arch in MACHINE_BY_ARCH:
         app = root / arch / "App"
         _fake_pe(app / "version.dll", arch)
         (app / "chrome++.ini").write_bytes(b"\xff\xfe" + UTF16_INI.encode("utf-16-le"))
+    archive = context.paths.root / "Chrome++_v1.18.2_x86_x64_arm64.7z"
+    subprocess.run([str(libraries.SEVEN_ZIP), "a", "-t7z", str(archive), *MACHINE_BY_ARCH], cwd=root, check=True, capture_output=True)
+    return archive
 
 
 def _build_with_browser(tmp_path: Path, spec: browser_registry.BrowserSpec, arch: str) -> Path:
@@ -90,11 +97,11 @@ def _thirty_two_bit_spec() -> browser_registry.BrowserSpec:
 def test_a_32_bit_browser_gets_the_32_bit_wrapper(tmp_path: Path) -> None:
     """A 32-bit browser with the x64 wrapper starts fine and is not portable."""
     context = _context(tmp_path)
-    _chrome_plus_tree(context)
+    archive = _chrome_plus_tree(context)
     spec = _thirty_two_bit_spec()
     build = _build_with_browser(tmp_path, spec, "x86")
 
-    arch = service._place_chrome_plus(context, spec, build, tmp_path / "unused.7z")
+    arch = service._place_chrome_plus(context, spec, build, archive)
 
     assert arch == "x86"
     assert service.pe_architecture(build / "App" / "version.dll") == "x86"
@@ -102,21 +109,21 @@ def test_a_32_bit_browser_gets_the_32_bit_wrapper(tmp_path: Path) -> None:
 
 def test_a_forced_mismatch_is_refused_instead_of_shipped(tmp_path: Path) -> None:
     context = _context(tmp_path, chrome_plus_arch="x64")
-    _chrome_plus_tree(context)
+    archive = _chrome_plus_tree(context)
     spec = _thirty_two_bit_spec()
     build = _build_with_browser(tmp_path, spec, "x86")
 
     with pytest.raises(RuntimeError, match="must match"):
-        service._place_chrome_plus(context, spec, build, tmp_path / "unused.7z")
+        service._place_chrome_plus(context, spec, build, archive)
 
 
 def test_a_64_bit_browser_keeps_the_64_bit_wrapper(tmp_path: Path) -> None:
     context = _context(tmp_path)
-    _chrome_plus_tree(context)
+    archive = _chrome_plus_tree(context)
     spec = browser_registry.browser("brave")
     build = _build_with_browser(tmp_path, spec, "x64")
 
-    assert service._place_chrome_plus(context, spec, build, tmp_path / "unused.7z") == "x64"
+    assert service._place_chrome_plus(context, spec, build, archive) == "x64"
 
 
 def test_update_replaces_app_where_the_build_already_lives(tmp_path: Path) -> None:
@@ -160,10 +167,10 @@ def test_a_locked_build_says_what_to_do(tmp_path: Path, monkeypatch: pytest.Monk
 def test_configure_ini_keeps_the_utf16_file_readable(tmp_path: Path) -> None:
     """Chrome++ ships the ini as UTF-16 LE; rewriting it as UTF-8 kills it silently."""
     context = _context(tmp_path)
-    _chrome_plus_tree(context)
+    archive = _chrome_plus_tree(context)
     spec = browser_registry.browser("yandex")
     build = _build_with_browser(tmp_path, spec, "x64")
-    service._place_chrome_plus(context, spec, build, tmp_path / "unused.7z")
+    service._place_chrome_plus(context, spec, build, archive)
 
     service._configure_chrome_plus_ini(context, spec, build, wipe_registry=True)
 
@@ -414,7 +421,7 @@ def test_registry_writes_stay_allowed_when_the_box_is_clear(tmp_path: Path) -> N
 def test_the_registry_wipe_stands_down_when_the_browser_is_installed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The branch belongs to the browser: wiping it would rob an installed copy."""
     context = _context(tmp_path)
-    _chrome_plus_tree(context)
+    archive = _chrome_plus_tree(context)
     spec = browser_registry.browser("brave")
     build = _build_with_browser(tmp_path, spec, "x64")
     monkeypatch.setattr(
@@ -422,7 +429,7 @@ def test_the_registry_wipe_stands_down_when_the_browser_is_installed(tmp_path: P
         "installed_browser_path",
         lambda _spec: r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
     )
-    service._place_chrome_plus(context, spec, build, tmp_path / "unused.7z")
+    service._place_chrome_plus(context, spec, build, archive)
 
     service._configure_chrome_plus_ini(context, spec, build, wipe_registry=True)
 

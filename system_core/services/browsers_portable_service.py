@@ -1207,18 +1207,9 @@ def _chrome_plus_arch(context: JobContext) -> str:
 
 
 def _chrome_plus_arch_dir(context: JobContext, archive: Path, arch: str) -> Path:
-    if archive.suffix.lower() == ".zip":
-        target = _tmp_dir(context) / "chrome_plus" / _sha256(archive)[:16]
-        return libraries.prepare_chrome_archive(archive, arch, target)
-    extract_root = _tmp_dir(context) / "chrome_plus"
-    if not extract_root.exists() or not any(extract_root.iterdir()):
-        _extract_archive(context, archive, extract_root)
-    arch_dir = extract_root / arch
-    if not arch_dir.is_dir():
-        arch_dir = _find_dir(extract_root, arch) or arch_dir
-    if not arch_dir.is_dir():
-        raise RuntimeError(f"{arch} folder was not found inside the Chrome++ archive.")
-    return arch_dir
+    # By the digest of the archive: a folder of an earlier release left in the temporary files is not taken for this one.
+    target = _tmp_dir(context) / "chrome_plus" / _sha256(archive)[:16]
+    return libraries.prepare_chrome_archive(archive, arch, target)
 
 
 def _place_chrome_plus(context: JobContext, spec: BrowserSpec, portable_dir: Path, plus_archive: Path) -> str:

@@ -8,15 +8,14 @@
   <a href="https://github.com/Tensionix/browsers-portable/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/Tensionix/browsers-portable?style=flat-square&color=5fd08a&logo=apache&logoColor=white&cacheSeconds=3600"></a>
 </p>
 
-**Version 2.0.3** · 2026-10-26 · 72.2 MB
+**Version 2.0.3** · 2026-10-26 · 104.4 MB
 
-- [Direct download](https://dl.audion.dev/browsers-portable/2.0.3/Audion_Browsers_Portable_v2.0.3.zip) — unmetered, no rate limits
+- [Direct download](https://audion.dev/get/browsers-portable/2.0.3/Audion_Browsers_Portable_v2.0.3_Full.zip) — unmetered, no rate limits
 - [Project page](https://audion.dev/downloads/browsers-portable) — every version and how to install
-- [GitHub release](https://github.com/Tensionix/browsers-portable/releases/tag/v2.0.3)
 
 <p align="center"><img src="docs/screenshot.png" alt="The program window" width="560"></p>
 
-`SHA-256: 30df4f49863ef44eb124230ef8da081ab250bcc5725af1cfb9cc8506b16269d3`
+`SHA-256: 8a60d2941d61ddbd2bccc80a93c2f5ca68767b59b6ab36f939fd147f37932101`
 
 ---
 
@@ -45,7 +44,7 @@ browsers, and keeps them updated.
 
 ## Portable libraries
 
-The default library is [Proxy library](https://gitflic.ru/project/neyrostalker/proksi-biblioteka) (x86/x64), with every optional switch in `App/version.ini` set to `0`. Alternatives are [Chrome++ (DeftKing)](https://github.com/DeftKing/chrome_plus) and [Vivaldi++](https://github.com/ca-x/vivaldi_plus), both supporting x86/x64/ARM64. A failed release lookup or download falls back to the archive of the selected library kept from an earlier download (in `Portable\_archives` of the Target folder), verified again. The generated launcher starts in `App` so relative `Data` and `Cache` paths stay inside the build. Registry cleanup applies only to Chrome++.
+The default library is [Proxy library](https://gitflic.ru/project/neyrostalker/proksi-biblioteka) (x86/x64), with every optional switch in `App/version.ini` set to `0`. Alternatives are [Chrome++](https://github.com/Bush2021/chrome_plus) and [Vivaldi++](https://github.com/ca-x/vivaldi_plus), both supporting x86/x64/ARM64. A failed release lookup or download falls back to the archive of the selected library kept from an earlier download (in `Portable\_archives` of the Target folder), verified again. The generated launcher starts in `App` so relative `Data` and `Cache` paths stay inside the build. Registry cleanup applies only to Chrome++.
 
 ## Single-browser tools consolidated
 

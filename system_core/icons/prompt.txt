@@ -1,6 +1,6 @@
 {
   "project": "Audion Browsers Portable",
-  "source_file": "E:\\TOOLS\\output\\audion-browsers-portable-icon-v2\\audion-browsers-portable.svg",
+  "source_file": "E:\\TOOLS\\output\\audion-browsers-portable-icon-v2\\app.svg",
   "source_in_project": "system_core/icons/app.svg",
   "pipeline": "Vector drawing by the owner; every frame drawn from the SVG at its own size by install/Build-AppIcon.ps1 (Microsoft Edge without a window), no bitmap is scaled",
   "sizes": {
@@ -19,7 +19,8 @@
   "encoding": "frames up to 64 px are 32-bit bitmaps, 256 px is PNG",
   "style_rules": [
     "round emblem filling the canvas, transparent corners",
-    "three blue sectors, white ring, white download arrow",
+    "three separate rounded modules: two blue, one burnt orange; transparent seams and a gap around the hub",
+    "graphite round hub with the white download arrow",
     "no dark tile",
     "no text"
   ]

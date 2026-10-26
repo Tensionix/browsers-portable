@@ -245,14 +245,14 @@ Yandex Browser needs none of this: the certificates are already in it.
 
 ## Build settings
 
-**Portability.** The default library is [Proxy library](https://gitflic.ru/project/neyrostalker/proksi-biblioteka) (x86/x64), with every optional switch in `App/version.ini` set to `0`. Alternatives are [Chrome++ (DeftKing)](https://github.com/DeftKing/chrome_plus) and [Vivaldi++](https://github.com/ca-x/vivaldi_plus), both supporting x86/x64/ARM64. A failed release lookup or download falls back to the archive of the selected library kept from an earlier download (in `Portable\_archives` of the Target folder), verified again. The generated launcher starts in `App` so relative `Data` and `Cache` paths stay inside the build. Registry cleanup applies only to Chrome++.
+**Portability.** The default library is [Proxy library](https://gitflic.ru/project/neyrostalker/proksi-biblioteka) (x86/x64), with every optional switch in `App/version.ini` set to `0`. Alternatives are [Chrome++](https://github.com/Bush2021/chrome_plus) and [Vivaldi++](https://github.com/ca-x/vivaldi_plus), both supporting x86/x64/ARM64. A failed release lookup or download falls back to the archive of the selected library kept from an earlier download (in `Portable\_archives` of the Target folder), verified again. The generated launcher starts in `App` so relative `Data` and `Cache` paths stay inside the build. Registry cleanup applies only to Chrome++.
 
 **Wrapper architecture.** Leave it at `AUTO`. The program reads whether the
 browser is 32- or 64-bit and uses a matching DLL from the selected library. This is not a
 formality: a 32-bit browser with a 64-bit wrapper starts as if nothing were
 wrong, but its profile goes to the system and the build stops being portable.
 
-**Clean registry with Chrome++.** Applies only to Chrome++ (DeftKing). Off by default. With it on, the browser wipes its
+**Clean registry with Chrome++.** Applies only to Chrome++. Off by default. With it on, the browser wipes its
 own registry branch when it exits. That branch is shared with an installed copy
 of the same browser, so turn it on only where that browser is not installed.
 

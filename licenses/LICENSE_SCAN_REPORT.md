@@ -1,7 +1,7 @@
 # Audion Build Licenses Scan Report
 
 - Project: **Audion Browsers Portable** (`audion-browsers-portable`)
-- Run: `20261015T231923Z_audion-browsers-portable_8cbf1539`
+- Run: `20261026T103007Z_audion-browsers-portable_a6136d74`
 - Scan root (from the project root): `.`
 - Output (from the project root): `licenses`
 - Status: **PASS**
@@ -17,7 +17,7 @@ No issues detected.
 
 | Component | Change | Old | New |
 |---|---|---:|---:|
-| 7-Zip | `UNCHANGED` | 26.4.0 | 26.4.0 |
+| 7-Zip | `UNCHANGED` | 26.5.0 | 26.5.0 |
 | Audion launcher | `UNCHANGED` | bundled | bundled |
 | Avalonia | `UNCHANGED` | 12.1.3 | 12.1.3 |
 | Avalonia.Angle.Windows.Natives | `UNCHANGED` | 2.1.27548.20260419 | 2.1.27548.20260419 |
@@ -53,7 +53,7 @@ No issues detected.
 | Microsoft.Management.Infrastructure | `UNCHANGED` | 3.0.0 | 3.0.0 |
 | Microsoft.Management.Infrastructure.CimCmdlets | `UNCHANGED` | 7.6.6 | 7.6.6 |
 | Microsoft.Management.Infrastructure.Runtime.Win | `UNCHANGED` | 3.0.0 | 3.0.0 |
-| Microsoft.NETCore.App.Runtime.win-x64 | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 10.0.12 | 10.0.13 |
+| Microsoft.NETCore.App.Runtime.win-x64 | `UNCHANGED` | 10.0.13 | 10.0.13 |
 | Microsoft.PowerShell.Commands.Diagnostics | `UNCHANGED` | 7.6.6 | 7.6.6 |
 | Microsoft.PowerShell.Commands.Management | `UNCHANGED` | 7.6.6 | 7.6.6 |
 | Microsoft.PowerShell.Commands.Utility | `UNCHANGED` | 7.6.6 | 7.6.6 |
@@ -71,15 +71,15 @@ No issues detected.
 | Microsoft.WSMan.Runtime | `UNCHANGED` | 7.6.6 | 7.6.6 |
 | Newtonsoft.Json | `UNCHANGED` | 13.0.4 | 13.0.4 |
 | packaging | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 26.3 | 26.3 |
-| pip | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 26.2.1 | 26.2.1 |
-| pluggy | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 1.6.0 | 1.7.0 |
+| pip | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 26.2.2 | 26.2.2 |
+| pluggy | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 1.7.0 | 1.7.0 |
 | Pygments | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 2.21.0 | 2.21.0 |
 | pytest | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 9.1.1 | 9.1.1 |
 | Python Embedded | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 3.12.x | 3.12.x |
 | PyYAML | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 6.0.3 | 6.0.3 |
 | runtime.native.System.Data.SqlClient.sni | `UNCHANGED` | 4.4.0 | 4.4.0 |
 | runtime.win-x64.runtime.native.System.Data.SqlClient.sni | `UNCHANGED` | 4.4.0 | 4.4.0 |
-| setuptools | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 84.0.0 | 84.0.0 |
+| setuptools | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 84.2.1 | 84.2.1 |
 | Simple Icons | `UNCHANGED` | 16.32.0 | 16.32.0 |
 | SkiaSharp | `UNCHANGED` | 3.119.4 | 3.119.4 |
 | SkiaSharp.NativeAssets.Win32 | `UNCHANGED` | 3.119.4 | 3.119.4 |
@@ -103,9 +103,9 @@ No issues detected.
 | System.Net.Http.WinHttpHandler | `UNCHANGED` | 10.0.5 | 10.0.5 |
 | System.Reflection.Context | `UNCHANGED` | 10.0.5 | 10.0.5 |
 | System.Runtime.Caching | `UNCHANGED` | 10.0.5 | 10.0.5 |
-| System.Security.Cryptography.Pkcs | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 10.0.10 | 10.0.13 |
+| System.Security.Cryptography.Pkcs | `UNCHANGED` | 10.0.13 | 10.0.13 |
 | System.Security.Cryptography.ProtectedData | `UNCHANGED` | 10.0.5 | 10.0.5 |
-| System.Security.Cryptography.Xml | `VERSION_OR_ARTIFACT_CHANGED_LICENSE_SAME` | 10.0.10 | 10.0.13 |
+| System.Security.Cryptography.Xml | `UNCHANGED` | 10.0.13 | 10.0.13 |
 | System.Security.Permissions | `UNCHANGED` | 10.0.5 | 10.0.5 |
 | System.ServiceModel.Http | `UNCHANGED` | 10.0.652802 | 10.0.652802 |
 | System.ServiceModel.NetFramingBase | `UNCHANGED` | 10.0.652802 | 10.0.652802 |

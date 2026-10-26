@@ -9,9 +9,9 @@ record and does not replace review of the applicable license terms.
 BUNDLED COMPONENTS WITH SOURCE REFERENCES
 --------------------------------------------------------------------------------
 Component: 7-Zip
-Version/profile: 26.4.0
+Version/profile: 26.5.0
 Method: upstream_pin
-version: 26.4.0
+version: 26.5.0
 url: https://www.7-zip.org/download.html
 
 Component: Avalonia

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.3 — 2026-10-26
+
+- Take Chrome++ from its author again, Bush2021/chrome_plus: one 7z of every architecture, read by the 7-Zip the program carries. The archives of the DeftKing/chrome_plus fork, used while the author's repository was unavailable, are neither downloaded nor taken as a reserve; the library is labelled plain "Chrome++".
+- A new program icon: three separate rounded modules, two blue and one burnt orange, round a graphite hub with the download arrow - in `Start.exe`, the window and its PowerShell.
+
 ## 2.0.2 — 2026-10-15
 
 - Pin the cryptography packages of the PowerShell the program carries (`App\AudionPs.exe`) to 10.0.13: Microsoft.PowerShell.SDK 7.6.6 brings System.Security.Cryptography.Pkcs and .Xml 10.0.10, which have known vulnerabilities. PowerShell itself stays 7.6.6.

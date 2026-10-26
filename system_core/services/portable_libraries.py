@@ -3,20 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Callable
 from urllib.parse import unquote
 import hashlib
 import json
 import re
+import subprocess
 import zipfile
 
+from system_core.core.jobs import hidden_subprocess_kwargs
 from system_core.services.long_paths import plain_path
 
 
 ENGINES = ("proxy_library", "chrome_plus", "vivaldi_plus")
-REPOSITORIES = {"chrome_plus": "DeftKing/chrome_plus", "vivaldi_plus": "ca-x/vivaldi_plus"}
-LABELS = {"proxy_library": "Proxy library", "chrome_plus": "Chrome++ (DeftKing)", "vivaldi_plus": "Vivaldi++"}
+REPOSITORIES = {"chrome_plus": "Bush2021/chrome_plus", "vivaldi_plus": "ca-x/vivaldi_plus"}
+LABELS = {"proxy_library": "Proxy library", "chrome_plus": "Chrome++", "vivaldi_plus": "Vivaldi++"}
+# The author ships Chrome++ as one 7z of every architecture (Chrome++_v1.18.2_x86_x64_arm64.7z, <arch>\App\...);
+# it is read by the 7-Zip the program carries (Install-Portable-7Zip.cmd).
+SEVEN_ZIP = Path(__file__).resolve().parents[2] / "tools" / "7zip" / "bin" / "7za.exe"
 MACHINES = {0x014C: "x86", 0x8664: "x64", 0xAA64: "arm64"}
 PROXY_DLLS = {"x86": "version x32.dll", "x64": "version x64.dll"}
 # The settings file each library reads beside the browser.
@@ -89,23 +94,64 @@ def require_architecture(engine: str, arch: str) -> None:
     if engine not in ENGINES:
         raise ValueError(f"Unknown portable library: {engine}")
     if arch not in MACHINES.values() or (engine == "proxy_library" and arch not in PROXY_DLLS):
-        raise RuntimeError(f"{LABELS[engine]} does not support {arch}. Choose Chrome++ (DeftKing) or Vivaldi++ for ARM64.")
+        raise RuntimeError(f"{LABELS[engine]} does not support {arch}. Choose Chrome++ or Vivaldi++ for ARM64.")
 
 
 def github_release(engine: str, arch: str, latest_assets: Callable) -> tuple[str, str, str]:
     require_architecture(engine, arch)
     tag, assets = latest_assets(REPOSITORIES[engine])
-    pattern = rf"version-{arch}-.+\.zip" if engine == "chrome_plus" else rf"windows_{arch}\.zip"
     for encoded_name, url in assets:
         name = unquote(encoded_name)
-        if re.fullmatch(pattern, name, re.IGNORECASE):
+        if _holds(engine, name, arch):
             return tag.lstrip("v"), name, url
     raise RuntimeError(f"{LABELS[engine]}: no {arch} archive in release {tag}.")
+
+
+def _holds(engine: str, name: str, arch: str) -> bool:
+    """Whether an asset of a release is the archive of the library for `arch` (setdll.7z beside Chrome++ is not)."""
+    if engine == "chrome_plus":
+        named = re.fullmatch(r"Chrome\+\+_v[^_]+_(.+)\.7z", name, re.IGNORECASE)
+        return bool(named) and arch in named.group(1).lower().split("_")
+    return re.fullmatch(rf"windows_{arch}\.zip", name, re.IGNORECASE) is not None
+
+
+def _seven_zip(*args: str) -> bytes:
+    if not SEVEN_ZIP.is_file():
+        raise RuntimeError(f"Portable 7-Zip is not available: {plain_path(SEVEN_ZIP)}. Run 'Check / install portable 7-Zip' first.")
+    done = subprocess.run([str(SEVEN_ZIP), *args, "-sccUTF-8"], capture_output=True, timeout=120, **hidden_subprocess_kwargs())
+    if done.returncode != 0:
+        raise RuntimeError("7-Zip: " + done.stderr.decode("utf-8", "replace").strip()[-300:])
+    return done.stdout
+
+
+def _chrome_plus_files(archive: Path, arch: str) -> dict[str, bytes]:
+    """version.dll and chrome++.ini of one architecture out of the 7z of the author: known names, read to memory."""
+    if archive.suffix.lower() != ".7z":
+        raise RuntimeError(f"{archive.name}: Chrome++ comes as the 7z of {REPOSITORIES['chrome_plus']}.")
+    sizes: dict[str, int] = {}
+    for block in _seven_zip("l", "-slt", "-ba", str(archive)).decode("utf-8", "replace").replace("\r\n", "\n").split("\n\n"):
+        fields = dict(line.split(" = ", 1) for line in block.splitlines() if " = " in line)
+        if "Path" in fields and not fields.get("Attributes", "").startswith("D"):
+            sizes[fields["Path"]] = int(fields.get("Size") or 0)
+    files = {}
+    for wanted, limit in (("version.dll", 16 * 1024 * 1024), ("chrome++.ini", 1024 * 1024)):
+        matches = [path for path in sizes if PureWindowsPath(path).name.lower() == wanted
+                   and arch in (part.lower() for part in PureWindowsPath(path).parts[:-1])]
+        if len(matches) != 1 or sizes[matches[0]] > limit:
+            raise RuntimeError(f"{archive.name}: expected one {wanted} for {arch}.")
+        files[wanted] = _seven_zip("e", "-so", "-spd", str(archive), matches[0])
+        if len(files[wanted]) != sizes[matches[0]]:
+            raise RuntimeError(f"{archive.name}: {wanted} for {arch} did not read whole.")
+    if pe_architecture_bytes(files["version.dll"]) != arch:
+        raise RuntimeError(f"{archive.name}: DLL architecture must match {arch}.")
+    return files
 
 
 def library_files(archive: Path, engine: str, arch: str) -> dict[str, bytes]:
     """Read only known files; never extract paths supplied by an archive."""
     require_architecture(engine, arch)
+    if engine == "chrome_plus":
+        return _chrome_plus_files(archive, arch)
     wanted = PROXY_DLLS[arch] if engine == "proxy_library" else "version.dll"
     with zipfile.ZipFile(archive) as zipped:
         matches = [item for item in zipped.infolist() if Path(item.filename).name.lower() == wanted.lower()]
@@ -114,13 +160,7 @@ def library_files(archive: Path, engine: str, arch: str) -> dict[str, bytes]:
         dll = zipped.read(matches[0])
         if pe_architecture_bytes(dll) != arch:
             raise RuntimeError(f"{archive.name}: DLL architecture must match {arch}.")
-        files = {"version.dll": dll}
-        if engine == "chrome_plus":
-            configs = [item for item in zipped.infolist() if Path(item.filename).name.lower() == "chrome++.ini"]
-            if len(configs) != 1 or configs[0].file_size > 1024 * 1024:
-                raise RuntimeError(f"{archive.name}: chrome++.ini is missing or ambiguous.")
-            files["chrome++.ini"] = zipped.read(configs[0])
-        return files
+        return {"version.dll": dll}
 
 
 def _digest(path: Path) -> str:
@@ -154,6 +194,9 @@ def local_library(context: Any, engine: str, arch: str, cache_root: Path) -> tup
                 if Path(name).name != name or "/" in name or "\\" in name:
                     continue
                 if data["engine"] != engine or data["architecture"] != _key(engine, arch).name:
+                    continue
+                # A reserve is of the source the library comes from now: not the build of a fork it once came from.
+                if engine in REPOSITORIES and f"github.com/{REPOSITORIES[engine]}/" not in data.get("url", ""):
                     continue
                 path = root / name
                 if _digest(path) != data["sha256"]:
